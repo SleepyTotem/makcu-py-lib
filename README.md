@@ -73,8 +73,7 @@ makcu = create_controller(debug=True, send_init=True)
 #### Set fallback port manually
 
 ```python
-from makcu import set_port
-set_port("COM4")  # use before create_controller()
+makcu.set_port("COM4")  # use before create_controller()
 ```
 
 ---
