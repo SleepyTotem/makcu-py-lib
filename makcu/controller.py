@@ -171,7 +171,7 @@ class MakcuController:
         self._check_connection()
         self.mouse.release(button)
 
-    def set_port(port: str):
+    def set_port(self, port: str):
         import makcu.connection
         makcu.connection.fallback_com_port = port
     

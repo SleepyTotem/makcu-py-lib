@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+
+latest_report.html
+.pytest_cache/
+
+pyproject.toml
+
+dist/
+build/
+*.egg-info/

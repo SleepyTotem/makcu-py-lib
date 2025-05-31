@@ -1,13 +1,13 @@
 [project]
 name = "makcu"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python library to interact with Makcu devices."
 readme = "README.md"
 requires-python = ">=3.7"
 authors = [
   { name = "SleepyTotem" }
 ]
-license = { text = "GNU" }
+license = { text = "GPL" }
 
 [project.urls]
 "Homepage" = "https://github.com/SleepyTotem/makcu-py-lib"
