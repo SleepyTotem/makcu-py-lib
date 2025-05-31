@@ -6,7 +6,7 @@ from .errors import MakcuConnectionError, MakcuTimeoutError
 from .enums import MouseButton
 
 class SerialTransport:
-    fallback_com_port = "COM1"
+    global fallback_com_port
     baud_change_command = bytearray([0xDE, 0xAD, 0x05, 0x00, 0xA5, 0x00, 0x09, 0x3D, 0x00])
 
     button_map = {
@@ -17,7 +17,7 @@ class SerialTransport:
         4: 'mouse5'
     }
 
-    def __init__(self, port=None, debug=False, send_init=True):        
+    def __init__(self, debug=False, send_init=True):        
         self._log_messages = []
         self.debug = debug
         self.send_init = send_init
@@ -40,12 +40,9 @@ class SerialTransport:
             4: MouseButton.MOUSE5,
         }
 
-        if port:
-            self.port = port
-        else:
-            self.port = self.find_com_port()
-            if not self.port:
-                raise MakcuConnectionError("Makcu device not found. Please specify a port explicitly.")
+        self.port = self.find_com_port()
+        if not self.port:
+            raise MakcuConnectionError("Makcu device not found. Please specify a port explicitly.")
 
         self.baudrate = 115200
         self.serial = None
@@ -87,13 +84,21 @@ class SerialTransport:
         print(entry, flush=True)
 
     def find_com_port(self):
+        global fallback_com_port
         self._log("Searching for CH343 device...")
+
         for port in list_ports.comports():
             if "USB-Enhanced-SERIAL CH343" in port.description:
                 self._log(f"Device found: {port.device}")
                 return port.device
-        self._log("Device not found.")
-        return None
+
+        if fallback_com_port and "COM" in fallback_com_port:
+            self._log(f"CH343 not found. Falling back to specified port: {fallback_com_port}")
+            return fallback_com_port
+        else:
+            self._log("Fallback port is not valid.")
+            return None
+
 
     def _open_serial_port(self, port, baud_rate):
         try:

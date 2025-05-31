@@ -34,7 +34,7 @@ def debug_console():
 def test_port(port):
     try:
         print(f"Trying to connect to {port} (without init command)...")
-        controller = create_controller(port=port, send_init=False)
+        controller = create_controller(send_init=False)
         print(f"✅ Successfully connected to {port}")
         controller.disconnect()
     except MakcuConnectionError as e:

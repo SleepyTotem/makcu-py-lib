@@ -6,8 +6,8 @@ from .errors import MakcuConnectionError
 from .enums import MouseButton
 
 class MakcuController:
-    def __init__(self, port=None, debug=False, send_init=True):
-        self.transport = SerialTransport(port=port, debug=debug, send_init=send_init)
+    def __init__(self, debug=False, send_init=True):
+        self.transport = SerialTransport(debug=debug, send_init=send_init)
         self.mouse = Mouse(self.transport)
 
     def connect(self):
@@ -171,3 +171,27 @@ class MakcuController:
         self._check_connection()
         self.mouse.release(button)
 
+    def set_port(port: str):
+        import makcu.connection
+        makcu.connection.fallback_com_port = port
+    
+    def get_button_states(self) -> dict:
+        self._check_connection()
+        return self.transport.get_button_states()
+
+    def is_button_pressed(self, button: MouseButton) -> bool:
+        self._check_connection()
+        return self.transport.get_button_states().get(button.name.lower(), False)
+
+    def get_raw_mask(self) -> int:
+        self._check_connection()
+        return self.transport.get_button_mask()
+
+    def get_virtual_bit_mapping(self) -> dict:
+        return {
+            "LEFT": 0,
+            "RIGHT": 1,
+            "MIDDLE": 2,
+            "MOUSE4": 3,
+            "MOUSE5": 4
+        }

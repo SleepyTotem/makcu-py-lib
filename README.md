@@ -67,7 +67,14 @@ makcu.disconnect()
 ### 🔧 Initialization
 
 ```python
-makcu = create_controller(port="COM3", debug=True, send_init=True)
+makcu = create_controller(debug=True, send_init=True)
+```
+
+#### Set fallback port manually
+
+```python
+from makcu import set_port
+set_port("COM4")  # use before create_controller()
 ```
 
 ---
@@ -85,7 +92,7 @@ makcu.release(MouseButton.RIGHT)
 #### Movement
 
 ```python
-makcu.move(30, 20)
+makcu.move(dx=30, dy=20)
 makcu.move_smooth(100, 40, segments=10)
 makcu.move_bezier(50, 50, 15, ctrl_x=25, ctrl_y=25)
 ```
@@ -209,6 +216,20 @@ mask = makcu.get_button_mask()
 print(f"Button mask: {mask}")
 ```
 
+### Get Raw Button State Map
+
+```python
+states = makcu.get_button_states()
+print(states)  # {'left': False, 'right': True, ...}
+```
+
+### Check if a Specific Button Is Pressed
+
+```python
+if makcu.is_button_pressed(MouseButton.RIGHT):
+    print("Right button is pressed")
+```
+
 ---
 
 ## ⚙️ Low-Level Command Access
@@ -216,7 +237,7 @@ print(f"Button mask: {mask}")
 ### Send raw serial commands
 
 ```python
-response = makcu._connection.send_command("km.version()", expect_response=True)
+response = makcu.transport.send_command("km.version()", expect_response=True)
 print(response)
 ```
 
@@ -262,9 +283,10 @@ except MakcuConnectionError as e:
 ## 🛠️ Developer Notes
 
 - Uses CH343 USB Serial
-- Auto-connects to correct port
+- Auto-connects to correct port or fallback
 - Supports baud rate switching to 4M
 - Automatically enables `km.buttons(1)` monitoring if `send_init=True`
+- Supports raw button state polling
 
 ---
 
@@ -277,4 +299,3 @@ GNU License © SleepyTotem
 ## 🌐 Links
 
 - 🔗 [Project Homepage](https://github.com/SleepyTotem/makcu-py-lib)
-```
