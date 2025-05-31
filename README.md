@@ -291,9 +291,12 @@ except MakcuConnectionError as e:
 
 ## 📜 License
 
-GNU License © SleepyTotem
+GPL License © SleepyTotem
 
 ---
+
+## Support
+Please open an issue on the project repository and I will get to it asap
 
 ## 🌐 Links
 
