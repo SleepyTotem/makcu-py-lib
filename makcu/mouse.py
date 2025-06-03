@@ -117,16 +117,6 @@ class Mouse:
         """
         return self.transport.read_captured_clicks(button)
 
-    def get_captured_clicks_enum(self, button: MouseButton) -> int:
-        mapping = {
-            MouseButton.LEFT: "LEFT",
-            MouseButton.RIGHT: "RIGHT",
-            MouseButton.MIDDLE: "MIDDLE",
-            MouseButton.MOUSE4: "MOUSE4",
-            MouseButton.MOUSE5: "MOUSE5",
-        }
-        return self.stop_capturing_clicks(mapping[button])
-
     def get_all_lock_states(self) -> dict:
         return {
             target: self.is_locked(target)

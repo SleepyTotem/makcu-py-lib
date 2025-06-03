@@ -6,8 +6,8 @@ from .errors import MakcuConnectionError
 from .enums import MouseButton
 
 class MakcuController:
-    def __init__(self, debug=False, send_init=True):
-        self.transport = SerialTransport(debug=debug, send_init=send_init)
+    def __init__(self, fallback_com_port, debug=False, send_init=True):
+        self.transport = SerialTransport(fallback_com_port, debug=debug, send_init=send_init)
         self.mouse = Mouse(self.transport)
 
     def connect(self):
@@ -92,10 +92,6 @@ class MakcuController:
         self._check_connection()
         return self.transport.get_button_mask()
 
-    def is_locked(self, target: str) -> bool:
-        self._check_connection()
-        return self.mouse.is_locked(target)
-
     def is_button_locked(self, button: MouseButton) -> bool:
         self._check_connection()
         return self.mouse.is_button_locked(button)
@@ -146,21 +142,9 @@ class MakcuController:
     def get_all_lock_states(self) -> dict:
         self._check_connection()
         return self.mouse.get_all_lock_states()
-    
-    def set_callback_debounce_time(self, ms: int):
-        self._check_connection()
-        self.transport.set_debounce_time(ms)
-
-    def start_capturing_clicks(self, button: str):
-        self._check_connection()
-        self.transport._capture_counts[button] = 0
-        self.transport._capture_active[button] = True
-        self.transport._capture_last_state[button] = None
-        self.mouse.begin_capture(button)
 
     def stop_capturing_clicks(self, button: str) -> int:
         self._check_connection()
-        self.transport._capture_active[button] = False
         return self.mouse.stop_capturing_clicks(button)
 
     def press(self, button: MouseButton):
@@ -170,11 +154,7 @@ class MakcuController:
     def release(self, button: MouseButton):
         self._check_connection()
         self.mouse.release(button)
-
-    def set_port(self, port: str):
-        import makcu.connection
-        makcu.connection.fallback_com_port = port
-    
+        
     def get_button_states(self) -> dict:
         self._check_connection()
         return self.transport.get_button_states()
@@ -182,16 +162,3 @@ class MakcuController:
     def is_button_pressed(self, button: MouseButton) -> bool:
         self._check_connection()
         return self.transport.get_button_states().get(button.name.lower(), False)
-
-    def get_raw_mask(self) -> int:
-        self._check_connection()
-        return self.transport.get_button_mask()
-
-    def get_virtual_bit_mapping(self) -> dict:
-        return {
-            "LEFT": 0,
-            "RIGHT": 1,
-            "MIDDLE": 2,
-            "MOUSE4": 3,
-            "MOUSE5": 4
-        }

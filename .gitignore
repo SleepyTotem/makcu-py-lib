@@ -1,12 +1,17 @@
-__pycache__/
+__pycache__
 *.pyc
 *.pyo
 
-latest_report.html
-.pytest_cache/
+latest_pytest.html
+.pytest_cache
 
-pyproject.toml
+dist
+build
+*.egg-info
 
-dist/
-build/
-*.egg-info/
+.pypirc
+
+MANIFEST.in
+testing.py
+
+tests

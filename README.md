@@ -53,7 +53,7 @@ python -m makcu --runtest
 ```python
 from makcu import create_controller, MouseButton
 
-makcu = create_controller()
+makcu = create_controller("COM1") # Fallback port
 makcu.click(MouseButton.LEFT)
 makcu.move(100, 50)
 makcu.scroll(-1)
@@ -73,7 +73,7 @@ makcu = create_controller(debug=True, send_init=True)
 #### Set fallback port manually
 
 ```python
-makcu.set_port("COM4")  # use before create_controller()
+makcu = create_controller("COM4")  # Optional fallback com port
 ```
 
 ---
@@ -177,17 +177,9 @@ def on_button_event(button, pressed):
 makcu.set_button_callback(on_button_event)
 ```
 
-### Configure Debounce
-
-```python
-makcu.set_callback_debounce_time(100)  # milliseconds
-```
-
 ---
 
-## Click Capturing
-
-### ❌ **Currently broken (Pending Firmware Update)**
+## ❌ Click Capturing (Pending Firmware Update)
 
 Click capturing will allow you to detect and count click events in software.
 
@@ -236,6 +228,8 @@ if makcu.is_button_pressed(MouseButton.RIGHT):
 ### Send raw serial commands
 
 ```python
+from makcu import create_controller
+makcu = create_controller()
 response = makcu.transport.send_command("km.version()", expect_response=True)
 print(response)
 ```
@@ -301,3 +295,4 @@ Please open an issue on the project repository and I will get to it asap
 ## 🌐 Links
 
 - 🔗 [Project Homepage](https://github.com/SleepyTotem/makcu-py-lib)
+- 🔗 [PyPi Homepage](hhttps://pypi.org/project/makcu/)

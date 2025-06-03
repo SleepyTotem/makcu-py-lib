@@ -1,9 +1,8 @@
-# makcu/__main__.py
-
 import sys
-import subprocess
 import webbrowser
 import os
+from pathlib import Path
+import pytest
 from makcu import create_controller, MakcuConnectionError
 
 def debug_console():
@@ -44,14 +43,30 @@ def test_port(port):
 
 def run_tests():
     print("🧪 Running Pytest Suite...")
-    subprocess.run([
-        sys.executable, "-m", "pytest",
-        "--html=latest_pytest.html", "--self-contained-html"
-    ])
+
+    package_dir = Path(__file__).resolve().parent
+    test_file = package_dir / "test_suite.py"
+
+    sys.exit(pytest.main([
+        str(test_file),
+        "--rootdir", str(package_dir),
+        "-v", "--tb=short",
+        "--capture=tee-sys",
+        "--html=latest_pytest.html",
+        "--self-contained-html"
+    ]))
 
     report_path = os.path.abspath("latest_pytest.html")
-    print(f"📄 Opening test report: {report_path}")
-    webbrowser.open(f"file://{report_path}")
+    if os.path.exists(report_path):
+        print(f"📄 Opening test report: {report_path}")
+        webbrowser.open(f"file://{report_path}")
+    else:
+        print("❌ Report not found. Something went wrong.")
+
+    if result.returncode != 0:
+        print("❌ Some tests failed.")
+    else:
+        print("✅ All tests passed.")
 
 def main():
     args = sys.argv[1:]

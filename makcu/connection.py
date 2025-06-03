@@ -6,7 +6,6 @@ from .errors import MakcuConnectionError, MakcuTimeoutError
 from .enums import MouseButton
 
 class SerialTransport:
-    global fallback_com_port
     baud_change_command = bytearray([0xDE, 0xAD, 0x05, 0x00, 0xA5, 0x00, 0x09, 0x3D, 0x00])
 
     button_map = {
@@ -17,7 +16,8 @@ class SerialTransport:
         4: 'mouse5'
     }
 
-    def __init__(self, debug=False, send_init=True):        
+    def __init__(self, fallback, debug=False, send_init=True):        
+        self._fallback_com_port = fallback
         self._log_messages = []
         self.debug = debug
         self.send_init = send_init
@@ -28,7 +28,6 @@ class SerialTransport:
         self._stop_event = threading.Event()
         self._listener_thread = None
         self._button_states = {btn: False for btn in self.button_map.values()}
-        self._debounce_time_ms = 50
         self._last_callback_time = {bit: 0 for bit in self.button_map}
         self._pause_listener = False
 
@@ -47,6 +46,7 @@ class SerialTransport:
         self.baudrate = 115200
         self.serial = None
         self._current_baud = None
+
 
     def receive_response(self, max_bytes=1024, max_lines=3, sent_command: str = "") -> str:
         lines = []
@@ -69,9 +69,6 @@ class SerialTransport:
             lines.remove(command_clean)
         return "\n".join(lines)
 
-    def set_debounce_time(self, ms: int):
-        self._debounce_time_ms = ms
-
     def set_button_callback(self, callback):
         self._button_callback = callback
 
@@ -84,21 +81,19 @@ class SerialTransport:
         print(entry, flush=True)
 
     def find_com_port(self):
-        global fallback_com_port
         self._log("Searching for CH343 device...")
 
         for port in list_ports.comports():
-            if "USB-Enhanced-SERIAL CH343" in port.description:
+            if "VID:PID=1A86:55D3" in port.hwid.upper():
                 self._log(f"Device found: {port.device}")
                 return port.device
 
-        if fallback_com_port and "COM" in fallback_com_port:
-            self._log(f"CH343 not found. Falling back to specified port: {fallback_com_port}")
-            return fallback_com_port
+        if self._fallback_com_port:
+            self._log(f"Device not found. Falling back to specified port: {self._fallback_com_port}")
+            return self._fallback_com_port
         else:
-            self._log("Fallback port is not valid.")
+            self._log("Fallback port not specified or invalid.")
             return None
-
 
     def _open_serial_port(self, port, baud_rate):
         try:
@@ -113,17 +108,13 @@ class SerialTransport:
             self._log("Sending baud rate switch command to 4M.")
             self.serial.write(self.baud_change_command)
             self.serial.flush()
-            port = self.serial.name
-            self.serial.close()
-            time.sleep(0.1)
-            self.serial = self._open_serial_port(port, 4000000)
-            if self.serial:
-                self._current_baud = 4000000
-                self._log("Switched to 4M baud successfully.")
-                return True
-            else:
-                self._log("Failed to reopen port at 4M baud.")
+            time.sleep(0.05)
+            self.serial.baudrate = 4000000
+            self._current_baud = 4000000
+            self._log("Switched to 4M baud successfully.")
+            return True
         return False
+
 
     def connect(self):
         if self._is_connected:
@@ -224,54 +215,57 @@ class SerialTransport:
 
     def _listen(self, debug=False):
         self._log("Started listener thread")
-        last_value = None
         button_states = {i: False for i in self.button_map}
         self._last_mask = 0
+        self._last_callback_time = {bit: 0 for bit in self.button_map}
 
         while self._is_connected and not self._stop_event.is_set():
             if self._pause_listener:
                 time.sleep(0.001)
                 continue
+
             try:
                 byte = self.serial.read(1)
                 if byte:
                     value = byte[0]
-                    mask = 0
-                    for bit, name in self.button_map.items():
-                        is_pressed = bool(value & (1 << bit))
-                        if is_pressed != button_states[bit]:
-                            button_states[bit] = is_pressed
-                        if is_pressed:
-                            mask |= (1 << bit)
 
-                    for bit, name in self.button_map.items():
-                        self._button_states[name] = button_states[bit]
+                    if value != self._last_mask:
+                        byte_str = str(byte)
 
-                    now = time.time() * 1000 
-                    if self._button_callback and mask != self._last_mask:
+                        if "b'\\x00" in byte_str:
+                            for bit in self.button_map:
+                                button_states[bit] = False
+
+                        elif "b'\\x" in byte_str:
+                            for bit, name in self.button_map.items():
+                                is_pressed = bool(value & (1 << bit))
+                                if is_pressed != button_states[bit]:
+                                    button_states[bit] = is_pressed
+
                         for bit, name in self.button_map.items():
-                            previous = bool(self._last_mask & (1 << bit))
-                            current = bool(mask & (1 << bit))
-                            if previous != current:
-                                last_time = self._last_callback_time.get(bit, 0)
-                                if now - last_time >= self._debounce_time_ms:
+                            self._button_states[name] = button_states[bit]
+
+                        if self._button_callback:
+                            for bit, name in self.button_map.items():
+                                previous = bool(self._last_mask & (1 << bit))
+                                current = bool(value & (1 << bit))
+                                if previous != current:
                                     button_enum = self._button_enum_map.get(bit)
                                     if button_enum:
                                         self._button_callback(button_enum, current)
-                                        self._last_callback_time[bit] = now
 
-                    self._last_mask = mask
+                        self._last_mask = value
 
-                    if debug:
-                        pressed = [name for bit, name in self.button_map.items() if button_states[bit]]
-                        button_str = ", ".join(pressed) if pressed else "No buttons pressed"
-                        self._log(f"Byte: {value} (0x{value:02X}) -> {button_str}")
+                        if debug:
+                            pressed = [name for bit, name in self.button_map.items() if button_states[bit]]
+                            button_str = ", ".join(pressed) if pressed else "No buttons pressed"
+                            self._log(f"Byte: {value} (0x{value:02X}) -> {button_str}")
 
-                    last_value = value
             except serial.SerialException as e:
                 if "ClearCommError failed" not in str(e):
                     self._log(f"Serial error during listening: {e}")
                     break
+
             time.sleep(0.0001)
 
         self._log("Listener thread exiting")

@@ -1,12 +1,12 @@
 import pytest
-import time
 from makcu import create_controller
+import time
 
 @pytest.fixture(scope="session")
 def makcu():
-    c = create_controller()
-    yield c
-    c.disconnect()
+    ctrl = create_controller()
+    yield ctrl
+    ctrl.disconnect()
     time.sleep(0.2)
 
 @pytest.fixture(autouse=True)
