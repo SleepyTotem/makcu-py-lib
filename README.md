@@ -295,4 +295,4 @@ Please open an issue on the project repository and I will get to it asap
 ## 🌐 Links
 
 - 🔗 [Project Homepage](https://github.com/SleepyTotem/makcu-py-lib)
-- 🔗 [PyPi Homepage](hhttps://pypi.org/project/makcu/)
+- 🔗 [PyPi Homepage](https://pypi.org/project/makcu/)
