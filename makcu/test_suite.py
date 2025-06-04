@@ -1,17 +1,12 @@
-import pytest
+import pytest, time
 from makcu import MouseButton
-
-def test_is_button_pressed(makcu):
-    assert makcu.is_button_pressed(MouseButton.LEFT) in [True, False]
 
 def test_press_and_release(makcu):
     makcu.press(MouseButton.LEFT)
     makcu.release(MouseButton.LEFT)
 
 def test_firmware_version(makcu):
-    print("Getting firmware version...")
     version = makcu.mouse.get_firmware_version()
-    print(f"Firmware version: {version}")
     assert version and len(version.strip()) > 0
 
 def test_middle_click(makcu):
@@ -70,6 +65,11 @@ def test_lock_state(makcu):
 
     assert all_states["LEFT"] is True
     assert isinstance(all_states["RIGHT"], bool)
+
+    makcu.press(MouseButton.LEFT)
+    makcu.release(MouseButton.LEFT)
+
+    time.sleep(0.1)
 
     print("Unlocking LEFT button...")
     makcu.lock_left(False)

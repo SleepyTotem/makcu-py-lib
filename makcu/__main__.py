@@ -33,7 +33,7 @@ def debug_console():
 def test_port(port):
     try:
         print(f"Trying to connect to {port} (without init command)...")
-        controller = create_controller(send_init=False)
+        controller = create_controller(fallback_com_port=port, send_init=False)
         print(f"✅ Successfully connected to {port}")
         controller.disconnect()
     except MakcuConnectionError as e:
@@ -47,14 +47,14 @@ def run_tests():
     package_dir = Path(__file__).resolve().parent
     test_file = package_dir / "test_suite.py"
 
-    sys.exit(pytest.main([
+    result = pytest.main([
         str(test_file),
         "--rootdir", str(package_dir),
         "-v", "--tb=short",
         "--capture=tee-sys",
         "--html=latest_pytest.html",
         "--self-contained-html"
-    ]))
+    ])
 
     report_path = os.path.abspath("latest_pytest.html")
     if os.path.exists(report_path):
@@ -63,11 +63,13 @@ def run_tests():
     else:
         print("❌ Report not found. Something went wrong.")
 
-    if result.returncode != 0:
+    if result != 0:
         print("❌ Some tests failed.")
     else:
         print("✅ All tests passed.")
 
+    sys.exit(result)
+    
 def main():
     args = sys.argv[1:]
 

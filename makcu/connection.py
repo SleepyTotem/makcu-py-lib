@@ -174,11 +174,8 @@ class SerialTransport:
         return dict(self._button_states)
 
     def get_button_mask(self) -> int:
-        mask = 0
-        for i, name in self.button_map.items():
-            if self._button_states.get(name, False):
-                mask |= (1 << i)
-        return mask
+        return self._last_mask
+
 
     def enable_button_monitoring(self, enable: bool = True):
         self.send_command("km.buttons(1)" if enable else "km.buttons(0)")
@@ -226,46 +223,49 @@ class SerialTransport:
 
             try:
                 byte = self.serial.read(1)
-                if byte:
-                    value = byte[0]
+                if not byte:
+                    continue
 
-                    if value != self._last_mask:
-                        byte_str = str(byte)
+                value = byte[0]
+                byte_str = str(byte)
 
-                        if "b'\\x00" in byte_str:
-                            for bit in self.button_map:
-                                button_states[bit] = False
+                if not byte_str.startswith("b'\\x"):
+                    continue
 
-                        elif "b'\\x" in byte_str:
-                            for bit, name in self.button_map.items():
-                                is_pressed = bool(value & (1 << bit))
-                                if is_pressed != button_states[bit]:
-                                    button_states[bit] = is_pressed
-
+                if value != self._last_mask:
+                    if byte_str.startswith("b'\\x00"):
                         for bit, name in self.button_map.items():
-                            self._button_states[name] = button_states[bit]
+                            button_states[bit] = False
+                            self._button_states[name] = False
+                            if debug:
+                                print(f"{name} -> False")
+                    else:
+                        for bit, name in self.button_map.items():
+                            is_pressed = bool(value & (1 << bit))
+                            button_states[bit] = is_pressed
+                            self._button_states[name] = is_pressed
+                            if debug:
+                                print(f"{name} -> {is_pressed}")
 
-                        if self._button_callback:
-                            for bit, name in self.button_map.items():
-                                previous = bool(self._last_mask & (1 << bit))
-                                current = bool(value & (1 << bit))
-                                if previous != current:
-                                    button_enum = self._button_enum_map.get(bit)
-                                    if button_enum:
-                                        self._button_callback(button_enum, current)
+                    if self._button_callback:
+                        for bit, name in self.button_map.items():
+                            previous = bool(self._last_mask & (1 << bit))
+                            current = bool(value & (1 << bit))
+                            if previous != current:
+                                button_enum = self._button_enum_map.get(bit)
+                                if button_enum:
+                                    self._button_callback(button_enum, current)
 
-                        self._last_mask = value
+                    self._last_mask = value
 
-                        if debug:
-                            pressed = [name for bit, name in self.button_map.items() if button_states[bit]]
-                            button_str = ", ".join(pressed) if pressed else "No buttons pressed"
-                            self._log(f"Byte: {value} (0x{value:02X}) -> {button_str}")
+                    if debug:
+                        pressed = [name for bit, name in self.button_map.items() if button_states[bit]]
+                        button_str = ", ".join(pressed) if pressed else "No buttons pressed"
+                        self._log(f"Byte: {value} (0x{value:02X}) -> {button_str}")
 
             except serial.SerialException as e:
                 if "ClearCommError failed" not in str(e):
                     self._log(f"Serial error during listening: {e}")
                     break
-
-            time.sleep(0.0001)
 
         self._log("Listener thread exiting")

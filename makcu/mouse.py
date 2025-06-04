@@ -10,7 +10,9 @@ class Mouse:
         cmd = {
             MouseButton.LEFT: "km.left(1)",
             MouseButton.RIGHT: "km.right(1)",
-            MouseButton.MIDDLE: "km.middle(1)"
+            MouseButton.MIDDLE: "km.middle(1)",
+            MouseButton.MOUSE4: "km.ms1(1)",
+            MouseButton.MOUSE5: "km.ms2(1)"
         }.get(button)
         if cmd:
             self.transport.send_command(cmd)
@@ -21,7 +23,9 @@ class Mouse:
         cmd = {
             MouseButton.LEFT: "km.left(0)",
             MouseButton.RIGHT: "km.right(0)",
-            MouseButton.MIDDLE: "km.middle(0)"
+            MouseButton.MIDDLE: "km.middle(0)",
+            MouseButton.MOUSE4: "km.ms1(0)",
+            MouseButton.MOUSE5: "km.ms2(0)"
         }.get(button)
         if cmd:
             self.transport.send_command(cmd)
