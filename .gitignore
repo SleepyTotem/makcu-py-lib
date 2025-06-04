@@ -13,5 +13,6 @@ build
 
 MANIFEST.in
 testing.py
+testing-fix.py
 
 tests

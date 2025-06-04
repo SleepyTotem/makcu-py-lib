@@ -72,6 +72,14 @@ class MakcuController:
         self._check_connection()
         self.mouse.lock_side2(lock)
 
+    def lock_x(self, lock: bool):
+        self._check_connection()
+        self.mouse.lock_x(lock)
+
+    def lock_y(self, lock: bool):
+        self._check_connection()
+        self.mouse.lock_y(lock)
+
     def spoof_serial(self, serial: str):
         self._check_connection()
         self.mouse.spoof_serial(serial)
