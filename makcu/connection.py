@@ -153,7 +153,6 @@ class SerialTransport:
         return self._is_connected
 
     def send_command(self, command, expect_response=False):
-        time.sleep(0.06)
         if not self._is_connected or not self.serial or not self.serial.is_open:
             raise MakcuConnectionError("Serial connection not open.")
         with self._lock:
@@ -169,6 +168,7 @@ class SerialTransport:
                     return response
             finally:
                 self._pause_listener = False
+
 
     def get_button_states(self):
         return dict(self._button_states)

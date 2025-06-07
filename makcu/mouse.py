@@ -6,31 +6,17 @@ class Mouse:
     def __init__(self, transport):
         self.transport = transport
 
-    def press(self, button: MouseButton):
-        cmd = {
-            MouseButton.LEFT: "km.left(1)",
-            MouseButton.RIGHT: "km.right(1)",
-            MouseButton.MIDDLE: "km.middle(1)",
-            MouseButton.MOUSE4: "km.ms1(1)",
-            MouseButton.MOUSE5: "km.ms2(1)"
-        }.get(button)
-        if cmd:
-            self.transport.send_command(cmd)
-        else:
-            raise MakcuCommandError(f"Unsupported button for press(): {button}")
-
-    def release(self, button: MouseButton):
-        cmd = {
-            MouseButton.LEFT: "km.left(0)",
-            MouseButton.RIGHT: "km.right(0)",
-            MouseButton.MIDDLE: "km.middle(0)",
-            MouseButton.MOUSE4: "km.ms1(0)",
-            MouseButton.MOUSE5: "km.ms2(0)"
-        }.get(button)
-        if cmd:
-            self.transport.send_command(cmd)
-        else:
-            raise MakcuCommandError(f"Unsupported button for release(): {button}")
+    def _send_button_command(self, button: MouseButton, state: int):
+        command_map = {
+            MouseButton.LEFT: "left",
+            MouseButton.RIGHT: "right",
+            MouseButton.MIDDLE: "middle",
+            MouseButton.MOUSE4: "ms1",
+            MouseButton.MOUSE5: "ms2",
+        }
+        if button not in command_map:
+            raise MakcuCommandError(f"Unsupported button: {button}")
+        self.transport.send_command(f"km.{command_map[button]}({state})")
 
     def move(self, x: int, y: int):
         self.transport.send_command(f"km.move({x},{y})")
@@ -44,7 +30,9 @@ class Mouse:
     def scroll(self, delta: int):
         self.transport.send_command(f"km.wheel({delta})")
 
-    def lock_left(self, lock: bool): self.transport.send_command(f"km.lock_ml({int(lock)})")
+    def lock_left(self, lock: bool): 
+        self.transport.send_command(f"km.lock_ml({int(lock)})")
+        print(f"km.lock_ml({int(lock)})")
     def lock_middle(self, lock: bool): self.transport.send_command(f"km.lock_mm({int(lock)})")
     def lock_right(self, lock: bool): self.transport.send_command(f"km.lock_mr({int(lock)})")
     def lock_side1(self, lock: bool): self.transport.send_command(f"km.lock_ms1({int(lock)})")

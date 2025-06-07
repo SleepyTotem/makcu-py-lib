@@ -10,8 +10,8 @@ def test_firmware_version(makcu):
     assert version and len(version.strip()) > 0
 
 def test_middle_click(makcu):
-    makcu.mouse.press(MouseButton.MIDDLE)
-    makcu.mouse.release(MouseButton.MIDDLE)
+    makcu.press(MouseButton.MIDDLE)
+    makcu.release(MouseButton.MIDDLE)
 
 def test_device_info(makcu):
     print("Fetching device info...")
@@ -29,9 +29,9 @@ def test_capture_right_clicks(makcu):
     assert makcu.mouse.is_button_locked(MouseButton.RIGHT)
 
     makcu.mouse.begin_capture("RIGHT")
-    makcu.mouse.press(MouseButton.RIGHT)
+    makcu.press(MouseButton.RIGHT)
     makcu.mouse.release(MouseButton.RIGHT)
-    makcu.mouse.press(MouseButton.RIGHT)
+    makcu.press(MouseButton.RIGHT)
     makcu.mouse.release(MouseButton.RIGHT)
 
     makcu.mouse.lock_right(False)
@@ -55,6 +55,8 @@ def test_get_button_states(makcu):
 def test_lock_state(makcu):
     print("Locking LEFT button...")
     makcu.lock_left(True)
+
+    time.sleep(0.1)
 
     print("Querying lock state while LEFT is locked...")
     assert makcu.is_button_locked(MouseButton.LEFT)

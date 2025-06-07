@@ -25,8 +25,8 @@ class MakcuController:
 
     def click(self, button: MouseButton):
         self._check_connection()
-        self.mouse.press(button)
-        self.mouse.release(button)
+        self._send_button_command(button, 1)
+        self._send_button_command(button, 0)
 
     def move(self, dx: int, dy: int):
         self._check_connection()
@@ -104,13 +104,18 @@ class MakcuController:
         self._check_connection()
         return self.mouse.is_button_locked(button)
 
-    def capture(self, button: MouseButton):
-        self._check_connection()
-        self.mouse.begin_capture(button.name)
+    #def capture(self, button: MouseButton):
+    #    self._check_connection()
+    #    self.mouse.begin_capture(button.name)
 
-    def get_captured_clicks(self, button: MouseButton) -> int:
-        self._check_connection()
-        return self.mouse.stop_capturing_clicks(button.name)
+
+    #def stop_capturing_clicks(self, button: str) -> int:
+    #    self._check_connection()
+    #    return self.mouse.stop_capturing_clicks(button)
+    
+    #def get_captured_clicks(self, button: MouseButton) -> int:
+    #    self._check_connection()
+    #    return self.mouse.stop_capturing_clicks(button.name)
 
 
     def click_human_like(self, button: MouseButton, count: int = 1,
@@ -118,15 +123,15 @@ class MakcuController:
         self._check_connection()
 
         timing_profiles = {
-            "normal": {"min_down": 60,  "max_down": 120, "min_wait": 100, "max_wait": 180},
-            "fast":   {"min_down": 30,  "max_down": 60,  "min_wait": 50,  "max_wait": 100},
-            "slow":   {"min_down": 100, "max_down": 180, "min_wait": 150, "max_wait": 300},
+            "normal": (60, 120, 100, 180),
+            "fast": (30, 60, 50, 100),
+            "slow": (100, 180, 150, 300),
         }
 
         if profile not in timing_profiles:
             raise ValueError(f"Invalid profile: {profile}. Choose from {list(timing_profiles.keys())}")
 
-        t = timing_profiles[profile]
+        min_down, max_down, min_wait, max_wait = timing_profiles[profile]
 
         for _ in range(count):
             if jitter > 0:
@@ -134,10 +139,10 @@ class MakcuController:
                 dy = random.randint(-jitter, jitter)
                 self.mouse.move(dx, dy)
 
-            self.mouse.press(button)
-            time.sleep(random.uniform(t["min_down"], t["max_down"]) / 1000.0)
+            self.press(button)
+            time.sleep(random.uniform(min_down, max_down) / 1000.0)
             self.mouse.release(button)
-            time.sleep(random.uniform(t["min_wait"], t["max_wait"]) / 1000.0)
+            time.sleep(random.uniform(min_wait, max_wait) / 1000.0)
     
     def enable_button_monitoring(self, enable: bool = True):
         self._check_connection()
@@ -150,18 +155,17 @@ class MakcuController:
     def get_all_lock_states(self) -> dict:
         self._check_connection()
         return self.mouse.get_all_lock_states()
-
-    def stop_capturing_clicks(self, button: str) -> int:
-        self._check_connection()
-        return self.mouse.stop_capturing_clicks(button)
+    
+    def _send_button_command(self, button: MouseButton, state: int):
+        self.mouse._send_button_command(button, state)
 
     def press(self, button: MouseButton):
         self._check_connection()
-        self.mouse.press(button)
+        self._send_button_command(button, 1)
 
     def release(self, button: MouseButton):
         self._check_connection()
-        self.mouse.release(button)
+        self._send_button_command(button, 0)
         
     def get_button_states(self) -> dict:
         self._check_connection()
