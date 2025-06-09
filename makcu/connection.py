@@ -29,7 +29,12 @@ class SerialTransport:
         self._listener_thread = None
         self._button_states = {btn: False for btn in self.button_map.values()}
         self._last_callback_time = {bit: 0 for bit in self.button_map}
-        self._pause_listener = False
+        
+        self._response_buffer = ""
+        self._response_ready = threading.Event()
+        self._waiting_for_response = False
+        self._response_timeout = 0.01
+        self._command_lock = threading.Lock()
 
         self._button_enum_map = {
             0: MouseButton.LEFT,
@@ -47,27 +52,44 @@ class SerialTransport:
         self.serial = None
         self._current_baud = None
 
-
-    def receive_response(self, max_bytes=1024, max_lines=3, sent_command: str = "") -> str:
-        lines = []
+    def receive_response(self, sent_command: str = "") -> str:
         try:
-            for _ in range(max_lines):
-                line = self.serial.readline(max_bytes)
-                if not line:
-                    break
-                decoded = line.decode(errors="ignore").strip()
-                if decoded:
-                    lines.append(decoded)
+            if self._response_ready.wait(timeout=self._response_timeout):
+                response = self._response_buffer
+                self._response_buffer = ""
+                self._response_ready.clear()
+                
+                lines = response.strip().split('\n')
+                lines = [line.strip() for line in lines if line.strip()]
+                
+                command_clean = sent_command.strip()
+                cleaned_lines = []
+                
+                for line in lines:
+                    if not line:
+                        continue
+                    if line == command_clean:
+                        continue
+                    if line.startswith('>>> '):
+                        actual_response = line[4:].strip()
+                        if actual_response and actual_response != command_clean:
+                            cleaned_lines.append(actual_response)
+                        continue
+                    if line == command_clean:
+                        continue
+                    cleaned_lines.append(line)
+                
+                result = "\n".join(cleaned_lines)
+                if self.debug:
+                    self._log(f"Command: {command_clean} -> Response: '{result}'")
+                return result
+            else:
+                return ""
+                
         except Exception as e:
-            print(f"[RECV ERROR] {e}")
+            if self.debug:
+                self._log(f"Error in receive_response: {e}")
             return ""
-
-        command_clean = sent_command.strip()
-        if lines:
-            lines.pop(-1)
-        if command_clean in lines and len(lines) > 1:
-            lines.remove(command_clean)
-        return "\n".join(lines)
 
     def set_button_callback(self, callback):
         self._button_callback = callback
@@ -115,7 +137,6 @@ class SerialTransport:
             return True
         return False
 
-
     def connect(self):
         if self._is_connected:
             self._log("Already connected.")
@@ -155,20 +176,27 @@ class SerialTransport:
     def send_command(self, command, expect_response=False):
         if not self._is_connected or not self.serial or not self.serial.is_open:
             raise MakcuConnectionError("Serial connection not open.")
-        with self._lock:
+        
+        with self._command_lock:
             try:
-                self._pause_listener = True
-                self.serial.reset_input_buffer()
+                if expect_response:
+                    self._response_buffer = ""
+                    self._response_ready.clear()
+                    self._waiting_for_response = True
+                
                 self.serial.write(command.encode("ascii") + b"\r\n")
                 self.serial.flush()
+                
                 if expect_response:
                     response = self.receive_response(sent_command=command)
+                    self._waiting_for_response = False
                     if not response:
                         raise MakcuTimeoutError(f"No response from device for command: {command}")
                     return response
-            finally:
-                self._pause_listener = False
-
+                    
+            except Exception as e:
+                self._waiting_for_response = False
+                raise
 
     def get_button_states(self):
         return dict(self._button_states)
@@ -176,11 +204,10 @@ class SerialTransport:
     def get_button_mask(self) -> int:
         return self._last_mask
 
-
     def enable_button_monitoring(self, enable: bool = True):
         self.send_command("km.buttons(1)" if enable else "km.buttons(0)")
 
-    def catch_button(self, button: str):
+    def catch_button(self, button: MouseButton):
         command = {
             "LEFT": "km.catch_ml(0)",
             "RIGHT": "km.catch_mr(0)",
@@ -193,79 +220,71 @@ class SerialTransport:
         else:
             raise ValueError(f"Unsupported button: {button}")
 
-    def read_captured_clicks(self, button: str) -> int:
-        command = {
-            "LEFT": "km.catch_ml()",
-            "RIGHT": "km.catch_mr()",
-            "MIDDLE": "km.catch_mm()",
-            "MOUSE4": "km.catch_ms1()",
-            "MOUSE5": "km.catch_ms2()",
-        }.get(button.upper())
-        if command:
-            result = self.send_command(command, expect_response=True)
-            try:
-                return int(result.strip())
-            except Exception:
-                return 0
-        else:
-            raise ValueError(f"Unsupported button: {button}")
+    def _is_button_data(self, byte_value):
+        return byte_value <= 0b11111 and byte_value not in [0x0D, 0x0A]
+
+    def _is_ascii_data(self, byte_value):
+        return 32 <= byte_value <= 126 or byte_value in [0x0D, 0x0A]  # Include CR/LF
 
     def _listen(self, debug=False):
         self._log("Started listener thread")
-        button_states = {i: False for i in self.button_map}
         self._last_mask = 0
-        self._last_callback_time = {bit: 0 for bit in self.button_map}
+        ascii_buffer = bytearray()
+        response_lines = []
 
         while self._is_connected and not self._stop_event.is_set():
-            if self._pause_listener:
-                time.sleep(0.001)
-                continue
-
             try:
-                byte = self.serial.read(1)
-                if not byte:
+                data = self.serial.read(self.serial.in_waiting or 1)
+                if not data:
                     continue
 
-                value = byte[0]
-                byte_str = str(byte)
+                for byte_val in data:
+                    if (self._is_button_data(byte_val) and 
+                                not self._waiting_for_response): 
+                        if byte_val != self._last_mask:
+                            changed_bits = byte_val ^ self._last_mask
+                            for bit, name in self.button_map.items():
+                                if changed_bits & (1 << bit):
+                                    is_pressed = bool(byte_val & (1 << bit))
+                                    self._button_states[name] = is_pressed
+                                    button_enum = self._button_enum_map.get(bit)
+                                    if button_enum and self._button_callback:
+                                        self._button_callback(button_enum, is_pressed)
 
-                if not byte_str.startswith("b'\\x"):
-                    continue
+                            self._last_mask = byte_val
 
-                if value != self._last_mask:
-                    if byte_str.startswith("b'\\x00"):
-                        for bit, name in self.button_map.items():
-                            button_states[bit] = False
-                            self._button_states[name] = False
                             if debug:
-                                print(f"{name} -> False")
-                    else:
-                        for bit, name in self.button_map.items():
-                            is_pressed = bool(value & (1 << bit))
-                            button_states[bit] = is_pressed
-                            self._button_states[name] = is_pressed
-                            if debug:
-                                print(f"{name} -> {is_pressed}")
-
-                    if self._button_callback:
-                        for bit, name in self.button_map.items():
-                            previous = bool(self._last_mask & (1 << bit))
-                            current = bool(value & (1 << bit))
-                            if previous != current:
-                                button_enum = self._button_enum_map.get(bit)
-                                if button_enum:
-                                    self._button_callback(button_enum, current)
-
-                    self._last_mask = value
-
-                    if debug:
-                        pressed = [name for bit, name in self.button_map.items() if button_states[bit]]
-                        button_str = ", ".join(pressed) if pressed else "No buttons pressed"
-                        self._log(f"Byte: {value} (0x{value:02X}) -> {button_str}")
+                                pressed = [name for _, name in self.button_map.items() if self._button_states[name]]
+                                button_str = ", ".join(pressed) if pressed else "No buttons pressed"
+                                self._log(f"Mask: 0x{byte_val:02X} -> {button_str}")
+                    elif self._is_ascii_data(byte_val):
+                        if self._waiting_for_response:
+                            ascii_buffer.append(byte_val)                        
+                            if byte_val == 0x0A:
+                                try:
+                                    line = ascii_buffer.decode('ascii', errors='ignore').strip()
+                                    ascii_buffer.clear()
+                                    
+                                    if line:
+                                        response_lines.append(line)
+                                        
+                                        if (len(response_lines) >= 2 or 
+                                            (len(response_lines) == 1 and not line.startswith('>>> '))):
+                                            
+                                            full_response = '\n'.join(response_lines)
+                                            self._response_buffer = full_response
+                                            self._response_ready.set()
+                                            response_lines.clear()
+                                            
+                                except Exception as e:
+                                    self._log(f"Error decoding ASCII response: {e}")
+                                    ascii_buffer.clear()
+                                    response_lines.clear()
 
             except serial.SerialException as e:
                 if "ClearCommError failed" not in str(e):
                     self._log(f"Serial error during listening: {e}")
                     break
-
+            except Exception as e:
+                self._log(f"Unexpected error in listener: {e}")
         self._log("Listener thread exiting")

@@ -25,8 +25,8 @@ class MakcuController:
 
     def click(self, button: MouseButton):
         self._check_connection()
-        self._send_button_command(button, 1)
-        self._send_button_command(button, 0)
+        self.mouse.press(button)
+        self.mouse.release(button)
 
     def move(self, dx: int, dy: int):
         self._check_connection()
@@ -100,23 +100,9 @@ class MakcuController:
         self._check_connection()
         return self.transport.get_button_mask()
 
-    def is_button_locked(self, button: MouseButton) -> bool:
+    def is_locked(self, button: MouseButton) -> bool:
         self._check_connection()
-        return self.mouse.is_button_locked(button)
-
-    #def capture(self, button: MouseButton):
-    #    self._check_connection()
-    #    self.mouse.begin_capture(button.name)
-
-
-    #def stop_capturing_clicks(self, button: str) -> int:
-    #    self._check_connection()
-    #    return self.mouse.stop_capturing_clicks(button)
-    
-    #def get_captured_clicks(self, button: MouseButton) -> int:
-    #    self._check_connection()
-    #    return self.mouse.stop_capturing_clicks(button.name)
-
+        return self.mouse.is_locked(button)
 
     def click_human_like(self, button: MouseButton, count: int = 1,
         profile: str = "normal", jitter: int = 0):
@@ -139,11 +125,11 @@ class MakcuController:
                 dy = random.randint(-jitter, jitter)
                 self.mouse.move(dx, dy)
 
-            self.press(button)
+            self.mouse.press(button)
             time.sleep(random.uniform(min_down, max_down) / 1000.0)
             self.mouse.release(button)
             time.sleep(random.uniform(min_wait, max_wait) / 1000.0)
-    
+
     def enable_button_monitoring(self, enable: bool = True):
         self._check_connection()
         self.transport.enable_button_monitoring(enable)
@@ -155,22 +141,19 @@ class MakcuController:
     def get_all_lock_states(self) -> dict:
         self._check_connection()
         return self.mouse.get_all_lock_states()
-    
-    def _send_button_command(self, button: MouseButton, state: int):
-        self.mouse._send_button_command(button, state)
 
     def press(self, button: MouseButton):
         self._check_connection()
-        self._send_button_command(button, 1)
+        self.mouse.press(button)
 
     def release(self, button: MouseButton):
         self._check_connection()
-        self._send_button_command(button, 0)
-        
+        self.mouse.release(button)
+
     def get_button_states(self) -> dict:
         self._check_connection()
         return self.transport.get_button_states()
 
-    def is_button_pressed(self, button: MouseButton) -> bool:
+    def is_pressed(self, button: MouseButton) -> bool:
         self._check_connection()
         return self.transport.get_button_states().get(button.name.lower(), False)
