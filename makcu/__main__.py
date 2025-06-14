@@ -115,7 +115,7 @@ def run_tests() -> NoReturn:
         console = Console()
 
         header = Panel.fit(
-            "[bold cyan]🧪 Makcu Test Suite v2.0[/bold cyan]\n[dim]High-Performance Python Library[/dim]",
+            "[bold cyan]Makcu Test Suite v2.0[/bold cyan]\n[dim]High-Performance Python Library[/dim]",
             border_style="bright_blue"
         )
         console.print(Align.center(header))
@@ -188,12 +188,12 @@ def run_tests() -> NoReturn:
                 status_text = status
 
             time_str = f"{duration_ms}ms" if duration_ms else "-"
-            if duration_ms < 3:
-                perf = "[green]⚡ Excellent[/green]"
-            elif duration_ms < 5:
-                perf = "[cyan]🚀 Great[/cyan]"
-            elif duration_ms < 10:
-                perf = "[yellow]👍 Good[/yellow]"
+            if duration_ms <= 3:
+                perf = "[green]Excellent[/green]"
+            elif duration_ms <= 5:
+                perf = "[cyan]Great[/cyan]"
+            elif duration_ms <= 10:
+                perf = "[yellow]Good[/yellow]"
             elif duration_ms > 0:
                 perf = "[red]🐌 Needs work[/red]"
             else:

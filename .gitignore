@@ -19,3 +19,4 @@ tests
 pypi.txt
 etc
 scripts
+.report.json
