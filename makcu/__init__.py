@@ -1,13 +1,4 @@
-"""
-Makcu Python Library v2.0
-
-High-performance library for controlling Makcu devices with async support,
-zero-delay command execution, and automatic reconnection.
-"""
-
 from typing import List
-
-# Import main components
 from .controller import MakcuController, create_controller, create_async_controller
 from .enums import MouseButton
 from .errors import (
@@ -18,22 +9,15 @@ from .errors import (
     MakcuResponseError
 )
 
-# Version info
 __version__: str = "2.0.0"
 __author__: str = "SleepyTotem"
 __license__: str = "GPL"
 
-# Public API
 __all__: List[str] = [
-    # Main controller
     "MakcuController",
     "create_controller",
     "create_async_controller",
-    
-    # Enums
     "MouseButton",
-    
-    # Errors
     "MakcuError",
     "MakcuConnectionError",
     "MakcuCommandError", 
@@ -41,10 +25,8 @@ __all__: List[str] = [
     "MakcuResponseError",
 ]
 
-# Convenience imports for backward compatibility
 from .controller import MakcuController as Controller
 
-# Package metadata
 __doc__ = """
 Makcu Python Library provides a high-performance interface for controlling
 Makcu USB devices. Features include:

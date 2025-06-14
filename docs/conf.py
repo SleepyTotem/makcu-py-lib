@@ -1,14 +1,14 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# For the full list of built-in configuration values, see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+
+
+
+
 
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
-# -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+
+
 
 project = 'Makcu Python Library'
 copyright = '2025, SleepyTotem'
@@ -16,8 +16,8 @@ author = 'SleepyTotem'
 release = '2.0.0'
 version = '2.0'
 
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+
+
 
 extensions = [
     'sphinx.ext.autodoc',
@@ -32,7 +32,7 @@ extensions = [
     'myst_parser',
 ]
 
-# Add support for Markdown files
+
 source_suffix = {
     '.rst': 'restructuredtext',
     '.md': 'markdown',
@@ -41,8 +41,8 @@ source_suffix = {
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+
+
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
@@ -54,7 +54,7 @@ html_theme_options = {
     'style_external_links': False,
     'vcs_pageview_mode': '',
     'style_nav_header_background': '#2980B9',
-    # Toc options
+
     'collapse_navigation': True,
     'sticky_navigation': True,
     'navigation_depth': 4,
@@ -62,10 +62,10 @@ html_theme_options = {
     'titles_only': False
 }
 
-html_logo = '_static/makcu_logo.png'  # Add your logo here
-html_favicon = '_static/favicon.ico'  # Add your favicon here
+html_logo = '_static/makcu_logo.png' 
+html_favicon = '_static/favicon.ico' 
 
-# -- Options for autodoc -----------------------------------------------------
+
 
 autodoc_default_options = {
     'members': True,
@@ -79,7 +79,7 @@ autodoc_default_options = {
 autodoc_typehints = 'description'
 autodoc_class_signature = 'mixed'
 
-# -- Options for napoleon ----------------------------------------------------
+
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
@@ -95,23 +95,23 @@ napoleon_use_rtype = True
 napoleon_type_aliases = None
 napoleon_attr_annotations = True
 
-# -- Options for intersphinx -------------------------------------------------
+
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'pyserial': ('https://pyserial.readthedocs.io/en/latest/', None),
 }
 
-# -- Options for todo extension ----------------------------------------------
+
 
 todo_include_todos = True
 
-# -- Options for copy button -------------------------------------------------
+
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
 copybutton_prompt_is_regexp = True
 
-# -- Custom CSS --------------------------------------------------------------
+
 
 def setup(app):
     app.add_css_file('custom.css')

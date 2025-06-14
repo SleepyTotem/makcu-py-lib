@@ -17,31 +17,28 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PendingCommand:
-    """Tracks a command waiting for response"""
     command_id: int
     command: str
     future: Future
     timestamp: float
     expect_response: bool = True
-    timeout: float = 0.1  # Reduced from 1.0
+    timeout: float = 0.1
 
 @dataclass
 class ParsedResponse:
-    """Parsed response from device"""
     command_id: Optional[int]
     content: str
     is_button_data: bool = False
     button_mask: Optional[int] = None
 
 class SerialTransport:
-    """Ultra-optimized serial transport for gaming performance"""
     
     BAUD_CHANGE_COMMAND = bytearray([0xDE, 0xAD, 0x05, 0x00, 0xA5, 0x00, 0x09, 0x3D, 0x00])
-    DEFAULT_TIMEOUT = 0.1  # Reduced from 1.0 for gaming
-    MAX_RECONNECT_ATTEMPTS = 3  # Reduced from 5
-    RECONNECT_DELAY = 0.1  # Reduced from 0.5
+    DEFAULT_TIMEOUT = 0.1
+    MAX_RECONNECT_ATTEMPTS = 3
+    RECONNECT_DELAY = 0.1
     
-    # Pre-computed button maps for faster lookups
+
     BUTTON_MAP = (
         'left', 'right', 'middle', 'mouse4', 'mouse5'
     )
@@ -57,14 +54,14 @@ class SerialTransport:
     def __init__(self, fallback: str = "", debug: bool = False, 
                  send_init: bool = True, auto_reconnect: bool = True, 
                  override_port: bool = False) -> None:
-        # Basic config
+
         self._fallback_com_port = fallback
         self.debug = debug
         self.send_init = send_init
         self.auto_reconnect = auto_reconnect
         self.override_port = override_port
         
-        # Connection state
+
         self._is_connected = False
         self._reconnect_attempts = 0
         self.port: Optional[str] = None
@@ -72,54 +69,51 @@ class SerialTransport:
         self.serial: Optional[serial.Serial] = None
         self._current_baud: Optional[int] = None
         
-        # Command tracking with pre-allocated buffer
+
         self._command_counter = 0
         self._pending_commands: Dict[int, PendingCommand] = {}
         self._command_lock = threading.Lock()
         
-        # Response parsing with optimized buffer
-        self._parse_buffer = bytearray(1024)  # Pre-allocate
+
+        self._parse_buffer = bytearray(1024)
         self._buffer_pos = 0
-        self._response_queue = deque(maxlen=100)  # Limit queue size
+        self._response_queue = deque(maxlen=100)
         
-        # Button state with bitwise operations
+
         self._button_callback: Optional[Callable[[MouseButton, bool], None]] = None
         self._last_button_mask = 0
-        self._button_states = 0  # Use single int instead of dict
+        self._button_states = 0
         
-        # Threading
+
         self._stop_event = threading.Event()
         self._listener_thread: Optional[threading.Thread] = None
         
-        # Logging optimization
+
         self._log_messages: deque = deque(maxlen=100)
         
-        # Cache for frequently used data
-        self._ascii_decode_table = bytes(range(128))  # ASCII lookup table
+
+        self._ascii_decode_table = bytes(range(128))
 
     def _log(self, message: str, level: str = "INFO") -> None:
-        """Optimized logging - only format when needed"""
         if not self.debug and level == "DEBUG":
             return
             
         if self.debug:
-            # Use faster time formatting
+
             timestamp = f"{time.time():.3f}"
             entry = f"[{timestamp}] [{level}] {message}"
             self._log_messages.append(entry)
             print(entry, flush=True)
 
     def _generate_command_id(self) -> int:
-        """Generate unique command ID - optimized with no lock for single-threaded access"""
-        self._command_counter = (self._command_counter + 1) & 0x2710  # Faster than % 10000
+        self._command_counter = (self._command_counter + 1) & 0x2710
         return self._command_counter
 
     def find_com_port(self) -> Optional[str]:
-        """Optimized port finding with caching"""
         if self.override_port:
             return self._fallback_com_port
             
-        # Cache the VID:PID string
+
         target_hwid = "VID:PID=1A86:55D3"
         
         for port in list_ports.comports():
@@ -134,8 +128,7 @@ class SerialTransport:
         return None
 
     def _parse_response_line(self, line: bytes) -> ParsedResponse:
-        """Optimized parsing - work with bytes directly"""
-        # Skip decode for simple checks
+
         if line.startswith(b'>>> '):
             content = line[4:].decode('ascii', 'ignore').strip()
             return ParsedResponse(None, content, False)
@@ -144,18 +137,17 @@ class SerialTransport:
         return ParsedResponse(None, content, False)
 
     def _handle_button_data(self, byte_val: int) -> None:
-        """Optimized button handling with bitwise operations"""
         if byte_val == self._last_button_mask:
             return
             
         changed_bits = byte_val ^ self._last_button_mask
         
-        # Use bitwise operations instead of dict lookups
-        for bit in range(5):  # Only check 5 buttons
+
+        for bit in range(5):
             if changed_bits & (1 << bit):
                 is_pressed = bool(byte_val & (1 << bit))
                 
-                # Update button state in single int
+
                 if is_pressed:
                     self._button_states |= (1 << bit)
                 else:
@@ -165,12 +157,11 @@ class SerialTransport:
                     try:
                         self._button_callback(self.BUTTON_ENUM_MAP[bit], is_pressed)
                     except Exception:
-                        pass  # Silently ignore callback errors for speed
+                        pass
         
         self._last_button_mask = byte_val
 
     def _process_pending_commands(self, content: str) -> None:
-        """Optimized command processing"""
         if not content or not self._pending_commands:
             return
 
@@ -178,14 +169,14 @@ class SerialTransport:
             if not self._pending_commands:
                 return
                 
-            # Get oldest command without min() call
+
             oldest_id = next(iter(self._pending_commands))
             pending = self._pending_commands[oldest_id]
 
             if pending.future.done():
                 return
 
-            # Fast string comparison
+
             if content == pending.command:
                 if not pending.expect_response:
                     pending.future.set_result(pending.command)
@@ -195,20 +186,19 @@ class SerialTransport:
                 del self._pending_commands[oldest_id]
 
     def _cleanup_timed_out_commands(self) -> None:
-        """Optimized cleanup - batch operations"""
         if not self._pending_commands:
             return
             
         current_time = time.time()
         with self._command_lock:
-            # Collect timed out commands
+
             timed_out = [
                 (cmd_id, pending) 
                 for cmd_id, pending in self._pending_commands.items()
                 if current_time - pending.timestamp > pending.timeout
             ]
             
-            # Batch remove
+
             for cmd_id, pending in timed_out:
                 del self._pending_commands[cmd_id]
                 if not pending.future.done():
@@ -216,44 +206,44 @@ class SerialTransport:
                         MakcuTimeoutError(f"Command #{cmd_id} timed out")
                     )
 
+
     def _listen(self) -> None:
-        """Ultra-optimized listener for gaming performance"""
-        # Pre-allocate buffers
+
         read_buffer = bytearray(4096)
         line_buffer = bytearray(256)
         line_pos = 0
         
-        # Cache frequently accessed attributes
+
         serial_read = self.serial.read
         serial_in_waiting = lambda: self.serial.in_waiting
         is_connected = lambda: self._is_connected
         stop_requested = self._stop_event.is_set
         
-        # Timing for cleanup
+
         last_cleanup = time.time()
-        cleanup_interval = 0.05  # 50ms cleanup interval
+        cleanup_interval = 0.05
         
         while is_connected() and not stop_requested():
             try:
-                # Check bytes available
+
                 bytes_available = serial_in_waiting()
                 if not bytes_available:
-                    time.sleep(0.001)  # 1ms sleep to prevent CPU spinning
+                    time.sleep(0.001)
                     continue
                 
-                # Read into pre-allocated buffer
+
                 bytes_read = serial_read(min(bytes_available, 4096))
                 
-                # Process bytes
+
                 for byte_val in bytes_read:
-                    # Fast button data check
+
                     if byte_val < 32 and byte_val not in (0x0D, 0x0A):
                         self._handle_button_data(byte_val)
                     else:
-                        # Build line
-                        if byte_val == 0x0A:  # LF
+
+                        if byte_val == 0x0A:
                             if line_pos > 0:
-                                # Process line without allocation
+
                                 line = bytes(line_buffer[:line_pos])
                                 line_pos = 0
                                 
@@ -261,12 +251,12 @@ class SerialTransport:
                                     response = self._parse_response_line(line)
                                     if response.content:
                                         self._process_pending_commands(response.content)
-                        elif byte_val != 0x0D:  # Ignore CR
-                            if line_pos < 256:  # Prevent overflow
+                        elif byte_val != 0x0D:
+                            if line_pos < 256:
                                 line_buffer[line_pos] = byte_val
                                 line_pos += 1
                 
-                # Periodic cleanup with reduced frequency
+
                 current_time = time.time()
                 if current_time - last_cleanup > cleanup_interval:
                     self._cleanup_timed_out_commands()
@@ -278,10 +268,9 @@ class SerialTransport:
                 else:
                     break
             except Exception:
-                pass  # Silently continue for maximum performance
+                pass
 
     def _attempt_reconnect(self) -> None:
-        """Fast reconnection attempt"""
         if self._reconnect_attempts >= self.MAX_RECONNECT_ATTEMPTS:
             self._is_connected = False
             return
@@ -298,12 +287,12 @@ class SerialTransport:
             if not self.port:
                 raise MakcuConnectionError("Device not found")
             
-            # Use write_timeout for faster failure detection
+
             self.serial = serial.Serial(
                 self.port, 
                 self.baudrate, 
-                timeout=0.001,  # 1ms read timeout
-                write_timeout=0.01  # 10ms write timeout
+                timeout=0.001,
+                write_timeout=0.01
             )
             self._change_baud_to_4M()
             
@@ -317,18 +306,16 @@ class SerialTransport:
             time.sleep(self.RECONNECT_DELAY)
 
     def _change_baud_to_4M(self) -> bool:
-        """Optimized baud rate change"""
         if self.serial and self.serial.is_open:
             self.serial.write(self.BAUD_CHANGE_COMMAND)
             self.serial.flush()
-            time.sleep(0.02)  # Reduced from 0.05
+            time.sleep(0.02)
             self.serial.baudrate = 4000000
             self._current_baud = 4000000
             return True
         return False
 
     def connect(self) -> None:
-        """Optimized connection with minimal overhead"""
         if self._is_connected:
             return
         
@@ -341,12 +328,12 @@ class SerialTransport:
             raise MakcuConnectionError("Makcu device not found")
         
         try:
-            # Optimized serial settings for gaming
+
             self.serial = serial.Serial(
                 self.port, 
                 115200, 
-                timeout=0.001,  # 1ms timeout
-                write_timeout=0.01,  # 10ms write timeout
+                timeout=0.001,
+                write_timeout=0.01,
                 xonxoff=False,
                 rtscts=False,
                 dsrdtr=False
@@ -362,7 +349,7 @@ class SerialTransport:
                 self.serial.write(b"km.buttons(1)\r")
                 self.serial.flush()
             
-            # Start high-priority listener thread
+
             self._stop_event.clear()
             self._listener_thread = threading.Thread(
                 target=self._listen, 
@@ -377,13 +364,12 @@ class SerialTransport:
             raise MakcuConnectionError(f"Failed to connect: {e}")
 
     def disconnect(self) -> None:
-        """Fast disconnect"""
         self._is_connected = False
         
         if self.send_init:
             self._stop_event.set()
             if self._listener_thread and self._listener_thread.is_alive():
-                self._listener_thread.join(timeout=0.1)  # Reduced timeout
+                self._listener_thread.join(timeout=0.1)
         
         with self._command_lock:
             for pending in self._pending_commands.values():
@@ -397,17 +383,14 @@ class SerialTransport:
 
     def send_command(self, command: str, expect_response: bool = False, 
                 timeout: float = DEFAULT_TIMEOUT) -> Optional[str]:
-        """Optimized command sending for minimal latency"""
         if not self._is_connected or not self.serial or not self.serial.is_open:
             raise MakcuConnectionError("Not connected")
         
-        # For commands without response, send and return immediately
         if not expect_response:
             self.serial.write(f"{command}\r\n".encode('ascii'))
             self.serial.flush()
             return command
         
-        # Commands with response need tracking
         cmd_id = self._generate_command_id()
         tagged_command = f"{command}#{cmd_id}"
         
@@ -439,36 +422,29 @@ class SerialTransport:
 
     async def async_send_command(self, command: str, expect_response: bool = False,
                                timeout: float = DEFAULT_TIMEOUT) -> Optional[str]:
-        """Async command optimized for gaming"""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, self.send_command, command, expect_response, timeout
         )
 
     def is_connected(self) -> bool:
-        """Fast connection check"""
         return self._is_connected and self.serial is not None and self.serial.is_open
 
     def set_button_callback(self, callback: Optional[Callable[[MouseButton, bool], None]]) -> None:
-        """Set button callback"""
         self._button_callback = callback
 
     def get_button_states(self) -> Dict[str, bool]:
-        """Get button states with optimized lookup"""
         return {
             self.BUTTON_MAP[i]: bool(self._button_states & (1 << i))
             for i in range(5)
         }
 
     def get_button_mask(self) -> int:
-        """Direct mask access"""
         return self._last_button_mask
 
     def enable_button_monitoring(self, enable: bool = True) -> None:
-        """Fast button monitoring toggle"""
         self.send_command("km.buttons(1)" if enable else "km.buttons(0)")
 
-    # Context managers unchanged but included for completeness
     async def __aenter__(self):
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.connect)

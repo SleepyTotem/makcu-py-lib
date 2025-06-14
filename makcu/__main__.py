@@ -28,16 +28,12 @@ def debug_console():
 
             command_counter += 1
             
-            # Send command and expect response for most commands
             response = transport.send_command(cmd, expect_response=True)
             
-            # Handle the response properly
             if response and response.strip():
-                # If response is just the command echoed back, that means success
                 if response.strip() == cmd:
                     print(f"{cmd}")
                 else:
-                    # This is actual response data (like "km.MAKCU" for version)
                     print(f"{response}")
             else:
                 print("(no response)")
@@ -65,19 +61,16 @@ def test_port(port: str) -> None:
         print(f"❌ Unexpected error: {e}")
 
 def parse_html_results(html_file: Path):
-    """Parse test results from the pytest HTML report"""
     if not html_file.exists():
         raise FileNotFoundError(f"HTML report not found: {html_file}")
     
     with open(html_file, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Extract the JSON data from the HTML file
     match = re.search(r'data-jsonblob="([^"]*)"', content)
     if not match:
         raise ValueError("Could not find JSON data in HTML report")
     
-    # Decode HTML entities in the JSON string
     json_str = match.group(1)
     json_str = json_str.replace('&#34;', '"').replace('&amp;#x27;', "'").replace('&amp;', '&')
     
@@ -89,13 +82,10 @@ def parse_html_results(html_file: Path):
     test_results = []
     total_ms = 0
     
-    # Filter out the connect_to_port test from display
     skip_tests = {'test_connect_to_port'}
     
     for test_id, test_data_list in data.get('tests', {}).items():
-        test_name = test_id.split('::')[-1]  # Get just the test function name
-        
-        # Skip connection test from display
+        test_name = test_id.split('::')[-1]
         if test_name in skip_tests:
             continue
             
@@ -103,7 +93,6 @@ def parse_html_results(html_file: Path):
             status = test_data.get('result', 'UNKNOWN')
             duration_str = test_data.get('duration', '0 ms')
             
-            # Parse duration (format: "X ms")
             duration_match = re.search(r'(\d+)\s*ms', duration_str)
             duration_ms = int(duration_match.group(1)) if duration_match else 0
             total_ms += duration_ms
@@ -113,7 +102,6 @@ def parse_html_results(html_file: Path):
     return test_results, total_ms
 
 def run_tests() -> NoReturn:
-    """Run tests with beautiful console output"""
     try:
         from rich.console import Console
         from rich.table import Table
@@ -150,25 +138,23 @@ def run_tests() -> NoReturn:
         ) as progress:
             task = progress.add_task("[cyan]Running tests...", total=100)
 
-            # Run pytest with minimal output, generating HTML report
             result = subprocess.run(
                 [
                     sys.executable, "-m", "pytest",
                     str(test_file),
                     "--rootdir", str(package_dir),
-                    "-q",  # Quiet mode
-                    "--tb=no",  # No traceback
+                    "-q",
+                    "--tb=no",
                     "--html", str(html_file),
                     "--self-contained-html"
                 ],
-                stdout=subprocess.DEVNULL,  # Hide stdout completely
-                stderr=subprocess.DEVNULL,  # Hide stderr completely
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 text=True
             )
 
             progress.update(task, completed=100)
 
-        # Parse results from HTML file
         try:
             test_results, total_ms = parse_html_results(html_file)
         except (FileNotFoundError, ValueError) as e:
@@ -178,7 +164,6 @@ def run_tests() -> NoReturn:
 
         elapsed_time = time.time() - start_time
 
-        # Table rendering
         table = Table(title="[bold]Test Results[/bold]", show_header=True, header_style="bold magenta")
         table.add_column("Test", style="cyan", no_wrap=True)
         table.add_column("Status", justify="center")
@@ -266,7 +251,6 @@ def run_tests() -> NoReturn:
             "--self-contained-html"
         ])
 
-        # Try to parse HTML results even in fallback mode
         try:
             test_results, total_ms = parse_html_results(html_file)
             passed = sum(1 for _, status, _ in test_results if status.upper() == "PASSED")

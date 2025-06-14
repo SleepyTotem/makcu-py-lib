@@ -4,7 +4,6 @@ from makcu import MakcuController, MouseButton
 
 @pytest.fixture(scope="session")
 def makcu(request):
-    """Session-scoped fixture with final cleanup at end of all tests"""
     ctrl = MakcuController(fallback_com_port="COM1", debug=False)
 
     def cleanup():
