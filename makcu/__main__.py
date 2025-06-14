@@ -115,7 +115,7 @@ def run_tests() -> NoReturn:
         console = Console()
 
         header = Panel.fit(
-            "[bold cyan]Makcu Test Suite v2.0[/bold cyan]\n[dim]High-Performance Python Library[/dim]",
+            "[bold cyan]Makcu Test Suite v2.1.1[/bold cyan]\n[dim]High-Performance Python Library[/dim]",
             border_style="bright_blue"
         )
         console.print(Align.center(header))
@@ -240,7 +240,7 @@ def run_tests() -> NoReturn:
 
         package_dir: Path = Path(__file__).resolve().parent
         test_file: Path = package_dir / "test_suite.py"
-        html_file: Path = package_dir.parent / "latest_pytest.html"
+        html_file: Path = Path.cwd() / "latest_pytest.html"
 
         result = pytest.main([
             str(test_file),

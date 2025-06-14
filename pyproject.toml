@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "makcu"
-version = "0.2.1"
+version = "2.1.1"
 description = "Python library for Makcu hardware device control"
 readme = "README.md"
 requires-python = ">=3.7"

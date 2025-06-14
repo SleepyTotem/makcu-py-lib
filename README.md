@@ -1,4 +1,4 @@
-# 🖱️ Makcu Python Library v2.0
+# 🖱️ Makcu Python Library v2.1.1
 
 [![PyPI Version](https://img.shields.io/pypi/v/makcu.svg)](https://pypi.org/project/makcu/)
 [![Python Support](https://img.shields.io/pypi/pyversions/makcu.svg)](https://pypi.org/project/makcu/)
@@ -6,15 +6,15 @@
 
 Makcu Py Lib is a high-performance Python library for controlling Makcu devices — now with **async/await support**, **zero-delay command execution**, and **automatic reconnection**!
 
-## 🚀 What's New in v2.0
+## What's New in v2.0
 
-- **⚡ Async/Await Support**: Full async API for modern Python applications
-- **🎯 Zero-Delay Commands**: Removed all `sleep()` calls with proper command tracking
-- **🔄 Auto-Reconnection**: Automatic device reconnection on disconnect
-- **📊 Parallel Operations**: Execute multiple commands simultaneously
-- **🔍 Enhanced Debugging**: Better logging and error tracking
-- **🎮 Gaming-Optimized**: Sub-3ms command execution for 240Hz+ gaming
-- **🏎️ Ultra-Fast Performance**: 10-50x faster than >=v1.4
+- **Async/Await Support**: Full async API for modern Python applications
+- **Zero-Delay Commands**: Removed all `sleep()` calls with proper command tracking
+- **Auto-Reconnection**: Automatic device reconnection on disconnect
+- **Parallel Operations**: Execute multiple commands simultaneously
+- **Enhanced Debugging**: Better logging and error tracking
+- **Gaming-Optimized**: Sub-3ms command execution for 240Hz+ gaming
+- **Ultra-Fast Performance**: 10-50x faster than >=v1.4
 
 ---
 

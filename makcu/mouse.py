@@ -1,10 +1,8 @@
-from typing import Dict, Optional, List, Union, Any
+from typing import Dict, Union
 from .enums import MouseButton
 from .connection import SerialTransport
 from .errors import MakcuCommandError
 from serial.tools import list_ports
-import time
-
 
 class AxisButton:
     def __init__(self, name: str) -> None:

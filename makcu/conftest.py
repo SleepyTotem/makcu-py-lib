@@ -1,5 +1,4 @@
 import pytest
-import time
 from makcu import MakcuController, MouseButton
 
 @pytest.fixture(scope="session")

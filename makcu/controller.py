@@ -1,7 +1,7 @@
 import asyncio
 import random
 import time
-from typing import Optional, Dict, Callable, Union, List, Any
+from typing import Optional, Dict, Callable, Union, List
 from concurrent.futures import ThreadPoolExecutor
 from .mouse import Mouse
 from .connection import SerialTransport

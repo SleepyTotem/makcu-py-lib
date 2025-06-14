@@ -1,15 +1,13 @@
 import serial
 import threading
 import time
-import struct
-from typing import Optional, Dict, Callable, List, Any, Tuple, Union
+from typing import Optional, Dict, Callable
 from serial.tools import list_ports
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections import deque
 from concurrent.futures import Future
 import logging
 import asyncio
-import re
 from .errors import MakcuConnectionError, MakcuTimeoutError
 from .enums import MouseButton
 
