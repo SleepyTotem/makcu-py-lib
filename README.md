@@ -1,4 +1,4 @@
-# 🖱️ Makcu Python Library v2.1.1
+# 🖱️ Makcu Python Library v2.1.2
 
 [![PyPI Version](https://img.shields.io/pypi/v/makcu.svg)](https://pypi.org/project/makcu/)
 [![Python Support](https://img.shields.io/pypi/pyversions/makcu.svg)](https://pypi.org/project/makcu/)

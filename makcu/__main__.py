@@ -1,12 +1,15 @@
 import sys
 import os
 from pathlib import Path
-from typing import List, NoReturn
+from typing import List, NoReturn, Optional, Tuple
 import pytest
 import time
 from makcu import create_controller, MakcuConnectionError, MakcuController
 import json
 import re
+import subprocess
+
+makcu_version = "v2.1.2"
 
 def debug_console():
     controller = create_controller()
@@ -60,7 +63,31 @@ def test_port(port: str) -> None:
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
 
-def parse_html_results(html_file: Path):
+def check_pytest_html_installed() -> bool:
+    """Check if pytest-html is installed."""
+    try:
+        import pytest_html
+        return True
+    except ImportError:
+        return False
+
+def find_writable_directory() -> Path:
+    """Find a writable directory for the HTML report."""
+    # Try current working directory first
+    cwd = Path.cwd()
+    if os.access(cwd, os.W_OK):
+        return cwd
+    
+    # Try user's home directory
+    home = Path.home()
+    if os.access(home, os.W_OK):
+        return home
+    
+    # Try temp directory as last resort
+    import tempfile
+    return Path(tempfile.gettempdir())
+
+def parse_html_results(html_file: Path) -> Tuple[List[Tuple[str, str, int]], int]:
     if not html_file.exists():
         raise FileNotFoundError(f"HTML report not found: {html_file}")
     
@@ -102,6 +129,12 @@ def parse_html_results(html_file: Path):
     return test_results, total_ms
 
 def run_tests() -> NoReturn:
+    # Check if pytest-html is installed
+    if not check_pytest_html_installed():
+        print("❌ pytest-html is not installed. Please install it via:")
+        print("   pip install pytest-html")
+        sys.exit(1)
+    
     try:
         from rich.console import Console
         from rich.table import Table
@@ -110,12 +143,11 @@ def run_tests() -> NoReturn:
         from rich.align import Align
         from rich import print as rprint
         from rich.text import Text
-        import subprocess
 
         console = Console()
 
         header = Panel.fit(
-            "[bold cyan]Makcu Test Suite v2.1.1[/bold cyan]\n[dim]High-Performance Python Library[/dim]",
+            f"[bold cyan]Makcu Test Suite {makcu_version}[/bold cyan]\n[dim]High-Performance Python Library[/dim]",
             border_style="bright_blue"
         )
         console.print(Align.center(header))
@@ -123,7 +155,20 @@ def run_tests() -> NoReturn:
 
         package_dir: Path = Path(__file__).resolve().parent
         test_file: Path = package_dir / "test_suite.py"
-        html_file: Path = package_dir.parent / "latest_pytest.html"
+        
+        # Find writable directory and create HTML path
+        writable_dir = find_writable_directory()
+        html_file: Path = writable_dir / "latest_pytest.html"
+        
+        # Clean up old report if it exists
+        if html_file.exists():
+            try:
+                html_file.unlink()
+            except Exception:
+                pass
+
+        console.print(f"[dim]Running pytest to generate: {html_file}[/dim]")
+        console.print(f"[dim]Working directory: {Path.cwd()}[/dim]")
 
         start_time = time.time()
 
@@ -138,6 +183,7 @@ def run_tests() -> NoReturn:
         ) as progress:
             task = progress.add_task("[cyan]Running tests...", total=100)
 
+            # Run pytest with explicit output capturing
             result = subprocess.run(
                 [
                     sys.executable, "-m", "pytest",
@@ -146,14 +192,35 @@ def run_tests() -> NoReturn:
                     "-q",
                     "--tb=no",
                     "--html", str(html_file),
-                    "--self-contained-html"
+                    "--self-contained-html",
+                    "-v"  # Add verbose to help debug
                 ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                capture_output=True,
                 text=True
             )
 
             progress.update(task, completed=100)
+
+        # Check if HTML file was created
+        if not html_file.exists():
+            console.print(f"[red]❌ HTML report was not created at: {html_file}[/red]")
+            console.print(f"[yellow]pytest exit code: {result.returncode}[/yellow]")
+            if result.stdout:
+                console.print("[yellow]stdout:[/yellow]")
+                console.print(result.stdout)
+            if result.stderr:
+                console.print("[red]stderr:[/red]")
+                console.print(result.stderr)
+            
+            # Try to run tests without HTML report
+            console.print("\n[yellow]Running tests without HTML report...[/yellow]")
+            result2 = subprocess.run(
+                [sys.executable, "-m", "pytest", str(test_file), "-v"],
+                capture_output=True,
+                text=True
+            )
+            console.print(result2.stdout)
+            sys.exit(1)
 
         try:
             test_results, total_ms = parse_html_results(html_file)
@@ -232,6 +299,10 @@ def run_tests() -> NoReturn:
             perf_text = Text("⚠️ No test results parsed. Check your test suite.", style="bold red")
 
         console.print(Align.center(Panel(perf_text, border_style="green")))
+        
+        # Print the location of the HTML report
+        console.print(f"\n[dim]HTML report saved to: {html_file}[/dim]")
+        
         sys.exit(0 if failed == 0 else 1)
 
     except ImportError:
@@ -240,16 +311,35 @@ def run_tests() -> NoReturn:
 
         package_dir: Path = Path(__file__).resolve().parent
         test_file: Path = package_dir / "test_suite.py"
-        html_file: Path = Path.cwd() / "latest_pytest.html"
+        
+        # Find writable directory
+        writable_dir = find_writable_directory()
+        html_file: Path = writable_dir / "latest_pytest.html"
+        
+        print(f"HTML report will be saved to: {html_file}")
 
-        result = pytest.main([
-            str(test_file),
-            "--rootdir", str(package_dir),
-            "-q",
-            "--tb=no",
-            "--html", str(html_file),
-            "--self-contained-html"
-        ])
+        # Use subprocess instead of pytest.main for better control
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "pytest",
+                str(test_file),
+                "--rootdir", str(package_dir),
+                "-q",
+                "--tb=no",
+                "--html", str(html_file),
+                "--self-contained-html"
+            ],
+            capture_output=True,
+            text=True
+        )
+
+        if not html_file.exists():
+            print(f"\n❌ HTML report was not created. pytest exit code: {result.returncode}")
+            if result.stdout:
+                print("stdout:", result.stdout)
+            if result.stderr:
+                print("stderr:", result.stderr)
+            sys.exit(1)
 
         try:
             test_results, total_ms = parse_html_results(html_file)
@@ -264,12 +354,12 @@ def run_tests() -> NoReturn:
         except (FileNotFoundError, ValueError):
             print("\n⚠️ Could not parse HTML results for summary")
 
-        if result != 0:
+        if result.returncode != 0:
             print("\n❌ Some tests failed.")
         else:
             print("\n✅ All tests passed.")
 
-        sys.exit(result)
+        sys.exit(result.returncode)
     
 def main() -> None:
     args: List[str] = sys.argv[1:]

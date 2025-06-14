@@ -71,7 +71,7 @@ Installation
 
 .. code-block:: bash
 
-   pip install makcu>=2.0.0
+   pip install makcu
 
 Basic Usage
 ^^^^^^^^^^^

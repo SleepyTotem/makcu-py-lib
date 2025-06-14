@@ -1,4 +1,5 @@
 import pytest
+import time
 from makcu import MakcuController, MouseButton
 
 @pytest.fixture(scope="session")
@@ -7,6 +8,9 @@ def makcu(request):
 
     def cleanup():
         if ctrl.is_connected():
+
+            time.sleep(0.1)
+
             ctrl.lock_left(False)
             ctrl.lock_right(False)
             ctrl.lock_middle(False)

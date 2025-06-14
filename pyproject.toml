@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "makcu"
-version = "2.1.1"
+version = "2.1.2"
 description = "Python library for Makcu hardware device control"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -32,14 +32,11 @@ classifiers = [
 ]
 dependencies = [
     "pyserial>=3.5",
-]
-
-[project.optional-dependencies]
-dev = [
     "pytest>=7.0",
     "pytest-html>=3.1",
     "build>=0.10",
     "twine>=4.0",
+    "rich>=14.0",
 ]
 
 [project.urls]
