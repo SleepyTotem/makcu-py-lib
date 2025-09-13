@@ -20,3 +20,7 @@ pypi.txt
 etc
 scripts
 .report.json
+
+LICENSE
+makcu
+py.typed
