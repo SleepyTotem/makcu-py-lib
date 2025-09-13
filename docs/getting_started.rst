@@ -9,10 +9,11 @@ What is Makcu?
 The Makcu Python Library lets you control Makcu devices from your Python code. Think of it as a way to programmatically control mouse movements, clicks, and scrolling - perfect for automation, gaming macros, or accessibility applications.
 
 **Key Benefits:**
-* ⚡ **Super Fast**: Commands execute in 1-3ms (up to 117x faster than older versions)
-* 🎯 **Gaming Ready**: Optimized for 240Hz+ gaming with sub-3ms execution
-* 🔄 **Auto-Reconnect**: Automatically reconnects if the device gets unplugged
-* 🚀 **Modern Python**: Full async/await support for modern applications
+
+* **⚡ Super Fast**: Commands execute in 1-3ms (up to 117x faster than older versions)
+* **🎯 Gaming Ready**: Optimized for 240Hz+ gaming with sub-3ms execution
+* **🔄 Auto-Reconnect**: Automatically reconnects if the device gets unplugged
+* **🚀 Modern Python**: Full async/await support for modern applications
 
 Installation
 ------------
