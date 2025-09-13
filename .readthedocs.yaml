@@ -9,12 +9,6 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
-  jobs:
-    pre_create_environment:
-      - echo "Setting up Makcu documentation build"
-    post_install:
-      - pip install --upgrade pip
-      - pip install -e .
 
 sphinx:
   configuration: docs/conf.py
@@ -28,12 +22,4 @@ formats:
 
 python:
   install:
-    - method: pip
-      path: .
-      extra_requirements:
-        - docs
     - requirements: docs/requirements.txt
-
-submodules:
-  include: []
-  recursive: false
