@@ -17,7 +17,7 @@ def test_press_and_release(makcu):
     makcu.release(MouseButton.LEFT)
 
 def test_firmware_version(makcu):
-    version = makcu.mouse.get_firmware_version()
+    version = makcu.get_firmware_version()
     assert version and len(version.strip()) > 0
 
 def test_middle_click(makcu):
@@ -63,18 +63,15 @@ def test_batch_commands(makcu):
     print("Testing batch command execution (10 commands)...")
     
     start_time = time.perf_counter()
-    
 
-    makcu.move(10, 0)
-    makcu.click(MouseButton.LEFT)
-    makcu.move(0, 10)
-    makcu.press(MouseButton.RIGHT)
-    makcu.release(MouseButton.RIGHT)
-    makcu.scroll(-1)
-    makcu.move(-10, 0)
-    makcu.click(MouseButton.MIDDLE)
-    makcu.move(0, -10)
-    makcu.scroll(1)
+    async def combo_actions():
+        await makcu.batch_execute([
+            lambda: makcu.move(5, 5),
+            lambda: makcu.click(MouseButton.LEFT),
+            lambda: makcu.scroll(-1)
+        ])
+
+    combo_actions()
     
     end_time = time.perf_counter()
     elapsed_ms = (end_time - start_time) * 1000

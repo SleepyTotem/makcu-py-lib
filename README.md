@@ -1,20 +1,10 @@
-# 🖱️ Makcu Python Library v2.1.3
+# 🖱️ Makcu Python Library v2.2.0
 
 [![PyPI Version](https://img.shields.io/pypi/v/makcu.svg)](https://pypi.org/project/makcu/)
 [![Python Support](https://img.shields.io/pypi/pyversions/makcu.svg)](https://pypi.org/project/makcu/)
 [![License](https://img.shields.io/badge/license-GPL-blue.svg)](LICENSE)
 
 Makcu Py Lib is a high-performance Python library for controlling Makcu devices — now with **async/await support**, **zero-delay command execution**, and **automatic reconnection**!
-
-## What's New in v2.0
-
-- **Async/Await Support**: Full async API for modern Python applications
-- **Zero-Delay Commands**: Removed all `sleep()` calls with proper command tracking
-- **Auto-Reconnection**: Automatic device reconnection on disconnect
-- **Parallel Operations**: Execute multiple commands simultaneously
-- **Enhanced Debugging**: Better logging and error tracking
-- **Gaming-Optimized**: Sub-3ms command execution for 240Hz+ gaming
-- **Ultra-Fast Performance**: 10-50x faster than >=v1.4
 
 ---
 
@@ -240,17 +230,6 @@ python -m makcu --runtest
 
 ---
 
-## ⚠️ Sync vs Async Limitations
-
-Some methods such as `lock()`, `unlock()`, and `click_human_like()` are currently only implemented in synchronous form. To use them in async workflows, run via thread executor:
-
-```python
-loop = asyncio.get_running_loop()
-await loop.run_in_executor(None, makcu.lock, MouseButton.LEFT)
-```
-
-> Note: `drag` and `get_all_lock_states` are supported only in the synchronous interface as of v2.0.
-
 ### Test Suite
 
 - File: `test_suite.py`
@@ -317,9 +296,6 @@ Based on the measured test suite, v2.0 is on average **~17× faster** than v1.3 
 ### Tips for Maximum Performance
 
 ```python
-# Use gaming profile for fastest clicks
-makcu.click_human_like(MouseButton.LEFT, profile="gaming")
-
 # Disable debug mode in production
 makcu = create_controller(debug=False)
 
@@ -416,11 +392,9 @@ GPL License © SleepyTotem
 
 ---
 
-## 🙋 Support & Contributing
+## 🙋 Support
 
 - **Issues**: [GitHub Issues](https://github.com/SleepyTotem/makcu-py-lib/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/SleepyTotem/makcu-py-lib/discussions)
-- **Pull Requests**: Welcome! Please read CONTRIBUTING.md
 
 ---
 

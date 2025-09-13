@@ -59,6 +59,19 @@ class SerialTransport:
         self.auto_reconnect = auto_reconnect
         self.override_port = override_port
         
+        if not hasattr(SerialTransport, '_thread_counter'):
+            SerialTransport._thread_counter = 0
+            SerialTransport._thread_map = {}
+
+        # Log version info during initialization
+        try:
+            from makcu import __version__
+            version = __version__
+            self._log(f"Makcu version: {version}")
+        except ImportError:
+            self._log("Makcu version info not available")
+        
+        self._log(f"Initializing SerialTransport with params: fallback='{fallback}', debug={debug}, send_init={send_init}, auto_reconnect={auto_reconnect}, override_port={override_port}")
 
         self._is_connected = False
         self._reconnect_attempts = 0
@@ -85,48 +98,62 @@ class SerialTransport:
 
         self._stop_event = threading.Event()
         self._listener_thread: Optional[threading.Thread] = None
-        
-
-        self._log_messages: deque = deque(maxlen=100)
-        
+                
 
         self._ascii_decode_table = bytes(range(128))
+        
+        self._log("SerialTransport initialization completed")
+
 
     def _log(self, message: str, level: str = "INFO") -> None:
-        if not self.debug and level == "DEBUG":
+        if not self.debug:
             return
             
-        if self.debug:
-
-            timestamp = f"{time.time():.3f}"
-            entry = f"[{timestamp}] [{level}] {message}"
-            self._log_messages.append(entry)
-            print(entry, flush=True)
+        timestamp = time.strftime("%H:%M:%S", time.localtime())
+        thread_id = threading.get_ident()
+        
+        # Map thread ID to a simple number
+        if thread_id not in SerialTransport._thread_map:
+            SerialTransport._thread_counter += 1
+            SerialTransport._thread_map[thread_id] = SerialTransport._thread_counter
+        
+        thread_num = SerialTransport._thread_map[thread_id]
+        entry = f"[{timestamp}] [T:{thread_num}] [{level}] {message}"
+        print(entry, flush=True)
 
     def _generate_command_id(self) -> int:
+        old_counter = self._command_counter
         self._command_counter = (self._command_counter + 1) & 0x2710
         return self._command_counter
 
     def find_com_port(self) -> Optional[str]:
+        self._log("Starting COM port discovery")
+        
         if self.override_port:
+            self._log(f"Override port enabled, using: {self._fallback_com_port}")
             return self._fallback_com_port
             
+        all_ports = list_ports.comports()
+        self._log(f"Found {len(all_ports)} COM ports total")
 
         target_hwid = "VID:PID=1A86:55D3"
         
-        for port in list_ports.comports():
+        for i, port in enumerate(all_ports):
+            self._log(f"Port {i}: {port.device} - HWID: {port.hwid}")
             if target_hwid in port.hwid.upper():
-                self._log(f"Device found: {port.device}")
+                self._log(f"Target device found on port: {port.device}")
                 return port.device
         
+        self._log("Target device not found in COM port scan")
+        
         if self._fallback_com_port:
-            self._log(f"Using fallback: {self._fallback_com_port}")
+            self._log(f"Using fallback COM port: {self._fallback_com_port}")
             return self._fallback_com_port
         
+        self._log("No fallback port specified, returning None")
         return None
 
     def _parse_response_line(self, line: bytes) -> ParsedResponse:
-
         if line.startswith(b'>>> '):
             content = line[4:].decode('ascii', 'ignore').strip()
             return ParsedResponse(None, content, False)
@@ -139,12 +166,14 @@ class SerialTransport:
             return
             
         changed_bits = byte_val ^ self._last_button_mask
-        
+        self._log(f"Button state changed: 0x{self._last_button_mask:02X} -> 0x{byte_val:02X}")
 
         for bit in range(5):
             if changed_bits & (1 << bit):
                 is_pressed = bool(byte_val & (1 << bit))
+                button_name = self.BUTTON_MAP[bit] if bit < len(self.BUTTON_MAP) else f"bit{bit}"
                 
+                self._log(f"Button {button_name}: {'PRESSED' if is_pressed else 'RELEASED'}")
 
                 if is_pressed:
                     self._button_states |= (1 << bit)
@@ -154,8 +183,8 @@ class SerialTransport:
                 if self._button_callback and bit < len(self.BUTTON_ENUM_MAP):
                     try:
                         self._button_callback(self.BUTTON_ENUM_MAP[bit], is_pressed)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        self._log(f"Button callback failed: {e}", "ERROR")
         
         self._last_button_mask = byte_val
 
@@ -166,14 +195,12 @@ class SerialTransport:
         with self._command_lock:
             if not self._pending_commands:
                 return
-                
 
             oldest_id = next(iter(self._pending_commands))
             pending = self._pending_commands[oldest_id]
 
             if pending.future.done():
                 return
-
 
             if content == pending.command:
                 if not pending.expect_response:
@@ -188,24 +215,25 @@ class SerialTransport:
             return
             
         current_time = time.time()
+        
         with self._command_lock:
-
             timed_out = [
                 (cmd_id, pending) 
                 for cmd_id, pending in self._pending_commands.items()
                 if current_time - pending.timestamp > pending.timeout
             ]
-            
 
             for cmd_id, pending in timed_out:
+                age = current_time - pending.timestamp
+                self._log(f"Command '{pending.command}' timed out after {age:.3f}s", "ERROR")
                 del self._pending_commands[cmd_id]
                 if not pending.future.done():
                     pending.future.set_exception(
                         MakcuTimeoutError(f"Command #{cmd_id} timed out")
                     )
 
-
     def _listen(self) -> None:
+        self._log("Starting listener thread")
 
         read_buffer = bytearray(4096)
         line_buffer = bytearray(256)
@@ -223,25 +251,20 @@ class SerialTransport:
         
         while is_connected() and not stop_requested():
             try:
-
                 bytes_available = serial_in_waiting()
                 if not bytes_available:
                     time.sleep(0.001)
                     continue
                 
-
                 bytes_read = serial_read(min(bytes_available, 4096))
-                
 
                 for byte_val in bytes_read:
-
                     if byte_val < 32 and byte_val not in (0x0D, 0x0A):
+                        # Button data
                         self._handle_button_data(byte_val)
                     else:
-
-                        if byte_val == 0x0A:
+                        if byte_val == 0x0A:  # LF
                             if line_pos > 0:
-
                                 line = bytes(line_buffer[:line_pos])
                                 line_pos = 0
                                 
@@ -249,27 +272,32 @@ class SerialTransport:
                                     response = self._parse_response_line(line)
                                     if response.content:
                                         self._process_pending_commands(response.content)
-                        elif byte_val != 0x0D:
+                        elif byte_val != 0x0D:  # Not CR
                             if line_pos < 256:
                                 line_buffer[line_pos] = byte_val
                                 line_pos += 1
-                
 
                 current_time = time.time()
                 if current_time - last_cleanup > cleanup_interval:
                     self._cleanup_timed_out_commands()
                     last_cleanup = current_time
                     
-            except serial.SerialException:
+            except serial.SerialException as e:
+                self._log(f"Serial exception in listener: {e}", "ERROR")
                 if self.auto_reconnect:
                     self._attempt_reconnect()
                 else:
                     break
-            except Exception:
-                pass
+            except Exception as e:
+                self._log(f"Unexpected exception in listener: {e}", "ERROR")
+        
+        self._log("Listener thread ending")
 
     def _attempt_reconnect(self) -> None:
+        self._log(f"Attempting reconnect #{self._reconnect_attempts + 1}/{self.MAX_RECONNECT_ATTEMPTS}")
+        
         if self._reconnect_attempts >= self.MAX_RECONNECT_ATTEMPTS:
+            self._log("Max reconnect attempts reached, giving up", "ERROR")
             self._is_connected = False
             return
         
@@ -277,44 +305,63 @@ class SerialTransport:
         
         try:
             if self.serial and self.serial.is_open:
+                self._log("Closing existing serial connection for reconnect")
                 self.serial.close()
             
             time.sleep(self.RECONNECT_DELAY)
             
             self.port = self.find_com_port()
             if not self.port:
-                raise MakcuConnectionError("Device not found")
+                raise MakcuConnectionError("Device not found during reconnect")
             
-
+            self._log(f"Reconnecting to {self.port} at {self.baudrate} baud")
             self.serial = serial.Serial(
                 self.port, 
                 self.baudrate, 
                 timeout=0.001,
                 write_timeout=0.01
             )
-            self._change_baud_to_4M()
+            
+            if not self._change_baud_to_4M():
+                raise MakcuConnectionError("Failed to change baud during reconnect")
             
             if self.send_init:
+                self._log("Sending init command during reconnect")
                 self.serial.write(b"km.buttons(1)\r")
                 self.serial.flush()
             
             self._reconnect_attempts = 0
+            self._log("Reconnect successful")
             
-        except Exception:
+        except Exception as e:
+            self._log(f"Reconnect attempt failed: {e}", "ERROR")
             time.sleep(self.RECONNECT_DELAY)
 
     def _change_baud_to_4M(self) -> bool:
+        self._log("Changing baud rate to 4M")
+        
         if self.serial and self.serial.is_open:
             self.serial.write(self.BAUD_CHANGE_COMMAND)
             self.serial.flush()
+            
             time.sleep(0.02)
+            
+            old_baud = self.serial.baudrate
             self.serial.baudrate = 4000000
             self._current_baud = 4000000
+            
+            self._log(f"Baud rate changed: {old_baud} -> {self.serial.baudrate}")
             return True
+        
+        self._log("Cannot change baud - serial not open", "ERROR")
         return False
 
     def connect(self) -> None:
+        connection_start = time.time()
+        self._log("Starting connection process")
+        
         if self._is_connected:
+            self._log("Already connected")
             return
         
         if not self.override_port:
@@ -325,8 +372,9 @@ class SerialTransport:
         if not self.port:
             raise MakcuConnectionError("Makcu device not found")
         
+        self._log(f"Connecting to {self.port}")
+        
         try:
-
             self.serial = serial.Serial(
                 self.port, 
                 115200, 
@@ -343,10 +391,14 @@ class SerialTransport:
             self._is_connected = True
             self._reconnect_attempts = 0
             
-            if self.send_init:
-                self.serial.write(b"km.buttons(1)\r")
-                self.serial.flush()
+            connection_time = time.time() - connection_start
+            self._log(f"Connection established in {connection_time:.3f}s")
             
+            if self.send_init:
+                self._log("Sending initialization command")
+                init_cmd = b"km.buttons(1)\r"
+                self.serial.write(init_cmd)
+                self.serial.flush()
 
             self._stop_event.clear()
             self._listener_thread = threading.Thread(
@@ -355,38 +407,61 @@ class SerialTransport:
                 name="MakcuListener"
             )
             self._listener_thread.start()
+            self._log(f"Listener thread started: {self._listener_thread.name}")
             
         except Exception as e:
+            self._log(f"Connection failed: {e}", "ERROR")
             if self.serial:
-                self.serial.close()
+                try:
+                    self.serial.close()
+                except:
+                    pass
             raise MakcuConnectionError(f"Failed to connect: {e}")
 
     def disconnect(self) -> None:
+        self._log("Starting disconnection process")
+        
         self._is_connected = False
         
         if self.send_init:
             self._stop_event.set()
             if self._listener_thread and self._listener_thread.is_alive():
                 self._listener_thread.join(timeout=0.1)
+                if self._listener_thread.is_alive():
+                    self._log("Listener thread did not join within timeout")
+                else:
+                    self._log("Listener thread stopped")
+        
+        pending_count = len(self._pending_commands)
+        if pending_count > 0:
+            self._log(f"Cancelling {pending_count} pending commands")
         
         with self._command_lock:
-            for pending in self._pending_commands.values():
+            for cmd_id, pending in self._pending_commands.items():
                 if not pending.future.done():
                     pending.future.cancel()
             self._pending_commands.clear()
         
         if self.serial and self.serial.is_open:
+            self._log(f"Closing serial port: {self.serial.port}")
             self.serial.close()
+            
         self.serial = None
+        self._log("Disconnection completed")
 
-    def send_command(self, command: str, expect_response: bool = False, 
+    def send_command(self, command: str, expect_response: bool = True, 
                 timeout: float = DEFAULT_TIMEOUT) -> Optional[str]:
+        command_start = time.time()
+        
         if not self._is_connected or not self.serial or not self.serial.is_open:
             raise MakcuConnectionError("Not connected")
         
         if not expect_response:
-            self.serial.write(f"{command}\r\n".encode('ascii'))
+            cmd_bytes = f"{command}\r\n".encode('ascii')
+            self.serial.write(cmd_bytes)
             self.serial.flush()
+            send_time = time.time() - command_start
+            self._log(f"Command '{command}' sent in {send_time:.3f}s (no response expected)")
             return command
         
         cmd_id = self._generate_command_id()
@@ -405,56 +480,75 @@ class SerialTransport:
             )
         
         try:
-            self.serial.write(f"{tagged_command}\r\n".encode('ascii'))
+            cmd_bytes = f"{tagged_command}\r\n".encode('ascii')
+            self.serial.write(cmd_bytes)
             self.serial.flush()
             
             result = future.result(timeout=timeout)
-            return result.split('#')[0] if '#' in result else result
+            
+            response = result.split('#')[0] if '#' in result else result
+            total_time = time.time() - command_start
+            self._log(f"Command '{command}' completed in {total_time:.3f}s total")
+            return response
             
         except TimeoutError:
+            total_time = time.time() - command_start
+            self._log(f"Command '{command}' timed out after {total_time:.3f}s", "ERROR")
             raise MakcuTimeoutError(f"Command timed out: {command}")
         except Exception as e:
+            total_time = time.time() - command_start
+            self._log(f"Command '{command}' failed after {total_time:.3f}s: {e}", "ERROR")
             with self._command_lock:
                 self._pending_commands.pop(cmd_id, None)
             raise
 
     async def async_send_command(self, command: str, expect_response: bool = False,
                                timeout: float = DEFAULT_TIMEOUT) -> Optional[str]:
+        self._log(f"Async sending command: '{command}'")
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, self.send_command, command, expect_response, timeout
         )
 
     def is_connected(self) -> bool:
-        return self._is_connected and self.serial is not None and self.serial.is_open
+        connected = self._is_connected and self.serial is not None and self.serial.is_open
+        return connected
 
     def set_button_callback(self, callback: Optional[Callable[[MouseButton, bool], None]]) -> None:
+        self._log(f"Setting button callback: {callback is not None}")
         self._button_callback = callback
 
     def get_button_states(self) -> Dict[str, bool]:
-        return {
+        states = {
             self.BUTTON_MAP[i]: bool(self._button_states & (1 << i))
             for i in range(5)
         }
+        return states
 
     def get_button_mask(self) -> int:
         return self._last_button_mask
 
     def enable_button_monitoring(self, enable: bool = True) -> None:
-        self.send_command("km.buttons(1)" if enable else "km.buttons(0)")
+        cmd = "km.buttons(1)" if enable else "km.buttons(0)"
+        self._log(f"{'Enabling' if enable else 'Disabling'} button monitoring")
+        self.send_command(cmd)
 
     async def __aenter__(self):
+        self._log("Async context manager enter")
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.connect)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self._log("Async context manager exit")
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.disconnect)
 
     def __enter__(self):
+        self._log("Sync context manager enter")
         self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._log("Sync context manager exit")
         self.disconnect()

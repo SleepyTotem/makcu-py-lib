@@ -8,11 +8,12 @@ from makcu import create_controller, MakcuConnectionError, MakcuController
 import json
 import re
 import subprocess
+import makcu
 
-makcu_version = "v2.1.3"
+makcu_version = makcu.__version__
 
 def debug_console():
-    controller = create_controller()
+    controller = create_controller(debug=True)
     transport = controller.transport
 
     print("🔧 Makcu Debug Console")

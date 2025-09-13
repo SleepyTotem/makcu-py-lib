@@ -98,6 +98,29 @@ class MakcuController:
         self.mouse.move(dx, dy)
 
     @maybe_async
+    def batch_execute(self, actions: List[Callable[[], None]]) -> None:
+        """Execute a batch of actions in sequence.
+        
+        Args:
+            actions: List of callable functions to execute in order
+            
+        Example:
+            makcu.batch_execute([
+                lambda: makcu.move(50, 0),
+                lambda: makcu.click(MouseButton.LEFT),
+                lambda: makcu.move(-50, 0),
+                lambda: makcu.click(MouseButton.RIGHT)
+            ])
+        """
+        self._check_connection()
+        
+        for action in actions:
+            try:
+                action()
+            except Exception as e:
+                raise RuntimeError(f"Batch execution failed at action: {e}")
+
+    @maybe_async
     def scroll(self, delta: int) -> None:
         self._check_connection()
         self.mouse.scroll(delta)
@@ -357,7 +380,6 @@ class MakcuController:
     async def async_scroll(self, delta: int) -> None:
         """Legacy method - use scroll() instead"""
         await self.scroll(delta)
-
 
 def create_controller(fallback_com_port: str = "", debug: bool = False, 
                      send_init: bool = True, auto_reconnect: bool = True, 
