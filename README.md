@@ -402,5 +402,5 @@ GPL License © SleepyTotem
 
 - [GitHub Repository](https://github.com/SleepyTotem/makcu-py-lib)
 - [PyPI Package](https://pypi.org/project/makcu/)
-- [Documentation](https://makcu.readthedocs.io/)
+- [Documentation](https://makcu-py-lib.readthedocs.io/)
 - [Changelog](https://makcu-py-lib.readthedocs.io/en/latest/changelog.html)
