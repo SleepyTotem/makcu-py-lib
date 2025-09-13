@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "makcu"
+version = "2.2.0"
+description = "Python library for Makcu hardware device control"
+readme = "makcu/README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+authors = [
+    {name = "SleepyTotem"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pyserial>=3.5",
+    "pytest>=7.0",
+    "pytest-html>=3.1",
+    "build>=0.10",
+    "twine>=4.0",
+    "rich>=14.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/SleepyTotem/makcu-py-lib"
+"Bug Reports" = "https://github.com/SleepyTotem/makcu-py-lib/issues"
+"Source" = "https://github.com/SleepyTotem/makcu-py-lib"
+
+[tool.setuptools]
+packages = ["makcu"]
+
+[tool.setuptools.package-data]
+makcu = ["py.typed", "test_suite.py", "conftest.py"]
+
+[tool.pytest.ini_options]
+# Add any existing pytest options here, plus:
+addopts = "--json-report"
+
+[tool.poetry.dependencies]
+pytest-json-report = "^1.5.0"
