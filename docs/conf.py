@@ -7,8 +7,8 @@ sys.path.insert(0, os.path.abspath('..'))
 project = 'Makcu Python Library'
 copyright = '2025, SleepyTotem'
 author = 'SleepyTotem'
-release = '2.2.1'
-version = '2.2.1'
+release = '2.2.2'
+version = '2.2.2'
 
 
 
