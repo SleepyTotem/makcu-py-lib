@@ -374,7 +374,7 @@ Version Information
 
 .. py:data:: LIBRARY_VERSION
    :type: str
-   :value: "2.2.0"
+   :value: "2.2.1"
 
    Current library version
 

@@ -51,7 +51,7 @@ To install a specific version:
     pip install "makcu>=2.0.0,<3.0.0"
     
     # Install exact version
-    pip install makcu==2.2.0
+    pip install makcu==2.2.1
 
 From Source (Development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

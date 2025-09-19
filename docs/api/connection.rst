@@ -1,7 +1,7 @@
 Connection and Transport API Reference
 =====================================
 
-The Makcu library handles device connections and communication through its controller classes. This document covers the connection-related features available in the Makcu Python library v2.2.0.
+The Makcu library handles device connections and communication through its controller classes. This document covers the connection-related features available in the Makcu Python library.
 
 .. currentmodule:: makcu
 
