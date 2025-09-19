@@ -137,6 +137,23 @@ def test_mixed_operations(makcu):
     assert elapsed_ms < 15
 
 
-@pytest.mark.skip(reason="Capture test disabled until firmware supports tracking clicks from software input")
-def test_capture_right_clicks(makcu):
-    pass
+def test_cleanup(makcu):
+    time.sleep(0.1)
+
+    makcu.lock_left(False)
+    makcu.lock_right(False)
+    makcu.lock_middle(False)
+    makcu.lock_side1(False)
+    makcu.lock_side2(False)
+    makcu.lock_x(False)
+    makcu.lock_y(False)
+
+    makcu.release(MouseButton.LEFT)
+    makcu.release(MouseButton.RIGHT)
+    makcu.release(MouseButton.MIDDLE)
+    makcu.release(MouseButton.MOUSE4)
+    makcu.release(MouseButton.MOUSE5)
+
+    makcu.enable_button_monitoring(False)
+    makcu.disconnect()
+    assert not makcu.is_connected(), "Failed to disconnect from the makcu"

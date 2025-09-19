@@ -8,7 +8,7 @@ from .enums import MouseButton
 from .errors import MakcuConnectionError
 
 # Version info
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 __author__ = "SleepyTotem"
 
 # Main exports

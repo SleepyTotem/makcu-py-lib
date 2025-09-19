@@ -91,42 +91,48 @@ def find_writable_directory() -> Path:
 def parse_html_results(html_file: Path) -> Tuple[List[Tuple[str, str, int]], int]:
     if not html_file.exists():
         raise FileNotFoundError(f"HTML report not found: {html_file}")
-    
+   
     with open(html_file, 'r', encoding='utf-8') as f:
         content = f.read()
-    
+   
     match = re.search(r'data-jsonblob="([^"]*)"', content)
     if not match:
         raise ValueError("Could not find JSON data in HTML report")
-    
+   
     json_str = match.group(1)
     json_str = json_str.replace('&#34;', '"').replace('&amp;#x27;', "'").replace('&amp;', '&')
-    
+   
     try:
         data = json.loads(json_str)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON data: {e}")
-    
+   
     test_results = []
     total_ms = 0
-    
+   
     skip_tests = {'test_connect_to_port'}
-    
+   
     for test_id, test_data_list in data.get('tests', {}).items():
         test_name = test_id.split('::')[-1]
+        
+        # Skip tests that are in skip_tests
         if test_name in skip_tests:
             continue
-            
+           
         for test_data in test_data_list:
             status = test_data.get('result', 'UNKNOWN')
             duration_str = test_data.get('duration', '0 ms')
-            
+           
             duration_match = re.search(r'(\d+)\s*ms', duration_str)
             duration_ms = int(duration_match.group(1)) if duration_match else 0
-            total_ms += duration_ms
             
+            # Always add test to results
             test_results.append((test_name, status, duration_ms))
-    
+            
+            # Only add time to total if it's not a cleanup test
+            if 'cleanup' not in test_name.lower():
+                total_ms += duration_ms
+   
     return test_results, total_ms
 
 def run_tests() -> NoReturn:
@@ -244,8 +250,12 @@ def run_tests() -> NoReturn:
             display_name = test_name.replace("test_", "").replace("_", " ").title()
 
             if status.upper() == "PASSED":
-                status_text = "[green]✅ PASSED[/green]"
-                passed += 1
+                if display_name.lower().startswith("cleanup"):
+                    status_text = ""
+                    passed += 1
+                else:
+                    status_text = "[green]✅ PASSED[/green]"
+                    passed += 1
             elif status.upper() == "FAILED":
                 status_text = "[red]❌ FAILED[/red]"
                 failed += 1
@@ -263,7 +273,10 @@ def run_tests() -> NoReturn:
             elif duration_ms <= 10:
                 perf = "[yellow]Good[/yellow]"
             elif duration_ms > 0:
-                perf = "[red]🐌 Needs work[/red]"
+                if display_name.lower().startswith("cleanup"):
+                    perf = ""
+                else:
+                    perf = "[red]🐌 Needs work[/red]"
             else:
                 perf = "-"
 

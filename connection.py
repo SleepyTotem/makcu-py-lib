@@ -449,7 +449,7 @@ class SerialTransport:
         self.serial = None
         self._log("Disconnection completed")
 
-    def send_command(self, command: str, expect_response: bool = True, 
+    def send_command(self, command: str, expect_response: bool = False, 
                 timeout: float = DEFAULT_TIMEOUT) -> Optional[str]:
         command_start = time.time()
         
@@ -457,11 +457,10 @@ class SerialTransport:
             raise MakcuConnectionError("Not connected")
         
         if not expect_response:
-            cmd_bytes = f"{command}\r\n".encode('ascii')
-            self.serial.write(cmd_bytes)
+            self.serial.write(f"{command}\r\n".encode('ascii'))
             self.serial.flush()
             send_time = time.time() - command_start
-            self._log(f"Command '{command}' sent in {send_time:.3f}s (no response expected)")
+            self._log(f"Command '{command}' sent in {send_time:.5f}s (no response expected)")
             return command
         
         cmd_id = self._generate_command_id()
@@ -488,7 +487,7 @@ class SerialTransport:
             
             response = result.split('#')[0] if '#' in result else result
             total_time = time.time() - command_start
-            self._log(f"Command '{command}' completed in {total_time:.3f}s total")
+            self._log(f"Command '{command}' completed in {total_time:.5f}s total")
             return response
             
         except TimeoutError:
