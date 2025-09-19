@@ -161,31 +161,33 @@ class SerialTransport:
         content = line.decode('ascii', 'ignore').strip()
         return ParsedResponse(None, content, False)
 
+    
     def _handle_button_data(self, byte_val: int) -> None:
         if byte_val == self._last_button_mask:
             return
-            
+
         changed_bits = byte_val ^ self._last_button_mask
+        print("\n", end='')
         self._log(f"Button state changed: 0x{self._last_button_mask:02X} -> 0x{byte_val:02X}")
 
-        for bit in range(5):
+        for bit in range(8):
             if changed_bits & (1 << bit):
                 is_pressed = bool(byte_val & (1 << bit))
                 button_name = self.BUTTON_MAP[bit] if bit < len(self.BUTTON_MAP) else f"bit{bit}"
-                
+            
                 self._log(f"Button {button_name}: {'PRESSED' if is_pressed else 'RELEASED'}")
-
+                print(">>> ", end='', flush=True)
                 if is_pressed:
                     self._button_states |= (1 << bit)
                 else:
                     self._button_states &= ~(1 << bit)
-                
+            
                 if self._button_callback and bit < len(self.BUTTON_ENUM_MAP):
                     try:
                         self._button_callback(self.BUTTON_ENUM_MAP[bit], is_pressed)
                     except Exception as e:
                         self._log(f"Button callback failed: {e}", "ERROR")
-        
+
         self._last_button_mask = byte_val
 
     def _process_pending_commands(self, content: str) -> None:
@@ -234,54 +236,114 @@ class SerialTransport:
 
     def _listen(self) -> None:
         self._log("Starting listener thread")
-
         read_buffer = bytearray(4096)
         line_buffer = bytearray(256)
         line_pos = 0
-        
 
         serial_read = self.serial.read
         serial_in_waiting = lambda: self.serial.in_waiting
         is_connected = lambda: self._is_connected
         stop_requested = self._stop_event.is_set
-        
 
         last_cleanup = time.time()
         cleanup_interval = 0.05
         
+        expecting_text_mode = False
+        last_byte = None
+
         while is_connected() and not stop_requested():
             try:
                 bytes_available = serial_in_waiting()
                 if not bytes_available:
                     time.sleep(0.001)
                     continue
-                
+            
                 bytes_read = serial_read(min(bytes_available, 4096))
-
                 for byte_val in bytes_read:
-                    if byte_val < 32 and byte_val not in (0x0D, 0x0A):
-                        # Button data
-                        self._handle_button_data(byte_val)
-                    else:
-                        if byte_val == 0x0A:  # LF
-                            if line_pos > 0:
+                    
+                    if last_byte == 0x0D and byte_val == 0x0A:
+                        if line_pos > 0:
+                            line = bytes(line_buffer[:line_pos])
+                            line_pos = 0
+                            if line:
+                                response = self._parse_response_line(line)
+                                if response.content:
+                                    self._process_pending_commands(response.content)
+                        expecting_text_mode = False
+                    
+                    elif byte_val >= 32 or byte_val in (0x09,):
+                        expecting_text_mode = True
+                        if line_pos < 256:
+                            line_buffer[line_pos] = byte_val
+                            line_pos += 1
+                    
+                    elif byte_val == 0x0D:
+                        if expecting_text_mode or line_pos > 0:
+                            expecting_text_mode = True
+                        else:
+                            pass
+                    
+                    elif byte_val == 0x0A:
+                        last_byte_str = f"0x{last_byte:02X}" if last_byte is not None else "None"
+                        # self._log(f"LF detected: last_byte={last_byte_str}, expecting_text={expecting_text_mode}, line_pos={line_pos}", "DEBUG")
+                        
+                        button_combination_detected = False
+                        
+                        if (self._last_button_mask != 0 or 
+                            (last_byte is not None and last_byte < 32 and last_byte != 0x0D) or
+                            (line_pos > 0 and not expecting_text_mode)):
+                            
+                            # self._log("LF: Detected as button combination (right + mouse4 = 0x0A)", "DEBUG")
+                            self._handle_button_data(byte_val)
+                            expecting_text_mode = False
+                            button_combination_detected = True
+                            line_pos = 0
+                        
+                        if not button_combination_detected:
+                            if last_byte == 0x0D:
+                                self._log("LF: Completing CRLF sequence", "DEBUG")
+                                if line_pos > 0:
+                                    line = bytes(line_buffer[:line_pos])
+                                    line_pos = 0
+                                    if line:
+                                        response = self._parse_response_line(line)
+                                        if response.content:
+                                            self._process_pending_commands(response.content)
+                                expecting_text_mode = False
+                            elif line_pos > 0 and expecting_text_mode:
+                                self._log("LF: Ending line with text in buffer", "DEBUG")
                                 line = bytes(line_buffer[:line_pos])
                                 line_pos = 0
-                                
                                 if line:
                                     response = self._parse_response_line(line)
                                     if response.content:
                                         self._process_pending_commands(response.content)
-                        elif byte_val != 0x0D:  # Not CR
-                            if line_pos < 256:
-                                line_buffer[line_pos] = byte_val
-                                line_pos += 1
-
+                                expecting_text_mode = False
+                            elif expecting_text_mode:
+                                self._log("LF: Empty line in text mode", "DEBUG")
+                                expecting_text_mode = False
+                            else:
+                                self._log("LF: Treating as button data (no text context)", "DEBUG")
+                                self._handle_button_data(byte_val)
+                                expecting_text_mode = False
+                                line_pos = 0  # Clear any accumulated data
+                    
+                    elif byte_val < 32:
+                        if last_byte == 0x0D:
+                            self._log(f"Processing delayed CR as button data: 0x0D", "DEBUG")
+                            self._handle_button_data(0x0D)
+                        
+                        self._handle_button_data(byte_val)
+                        expecting_text_mode = False
+                        line_pos = 0
+                    
+                    last_byte = byte_val
+                            
                 current_time = time.time()
                 if current_time - last_cleanup > cleanup_interval:
                     self._cleanup_timed_out_commands()
                     last_cleanup = current_time
-                    
+                
             except serial.SerialException as e:
                 self._log(f"Serial exception in listener: {e}", "ERROR")
                 if self.auto_reconnect:
@@ -290,7 +352,7 @@ class SerialTransport:
                     break
             except Exception as e:
                 self._log(f"Unexpected exception in listener: {e}", "ERROR")
-        
+
         self._log("Listener thread ending")
 
     def _attempt_reconnect(self) -> None:
