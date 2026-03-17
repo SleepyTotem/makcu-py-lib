@@ -15,8 +15,8 @@ class Mouse:
         MouseButton.LEFT: "left",
         MouseButton.RIGHT: "right",
         MouseButton.MIDDLE: "middle",
-        MouseButton.MOUSE4: "ms1",
-        MouseButton.MOUSE5: "ms2",
+        MouseButton.MOUSE4: "side1",
+        MouseButton.MOUSE5: "side2",
     }
 
     _PRESS_COMMANDS = {}
