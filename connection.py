@@ -259,6 +259,12 @@ class SerialTransport:
                     continue
             
                 bytes_read = serial_read(min(bytes_available, 4096))
+                if not bytes_read:
+                    # in_waiting reported bytes but the read came back empty.
+                    # Without this the loop retries immediately and spins at
+                    # 100% of a core, so yield the same 1ms as the idle path.
+                    time.sleep(0.001)
+                    continue
                 for byte_val in bytes_read:
                     
                     if last_byte == 0x0D and byte_val == 0x0A:
@@ -352,6 +358,9 @@ class SerialTransport:
                     break
             except Exception as e:
                 self._log(f"Unexpected exception in listener: {e}", "ERROR")
+                # A fault that repeats every iteration would otherwise make
+                # this a hot loop; back off so it stays a logged error.
+                time.sleep(0.001)
 
         self._log("Listener thread ending")
 
